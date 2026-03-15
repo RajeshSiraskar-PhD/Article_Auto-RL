@@ -395,3 +395,224 @@ In general use seminal and recent references. Wherever you can try to use my pre
     Ref. 3. Reinforcement learning for predictive maintenance: a systematic technical review -
     https://link.springer.com/article/10.1007/s10462-023-10468-6
     For: The section on prognostic specific evaluation metrics. Lambda is what I used. Lambda = time from first prediction of tool replacement to wear threshold. Lower Lambda is better - zero is ideal. 
+
+
+
+VSC artcile sections
+
+Context: Industry 4.0/5.0, predictive maintenance, and edge constraints
+
+AutoRL overview
+
+2.1 Motivation and design goals
+
+2.2 Experimental automation and reproducibility
+
+
+Foundational concepts
+
+3.1 Predictive maintenance as a Markov decision process
+
+3.1.1 MDP and POMDP formulation
+
+3.1.2 What is “theory” vs. “implementation” in this paper?
+
+3.2 Attention mechanisms for predictive maintenance
+
+3.2.1 Attention in general
+
+3.2.2 Nadaraya-Watson (NW) attention
+
+3.2.3 Temporal attention (TP)
+
+3.2.4 Multi-head attention (MH)
+
+3.2.5 Self-attention (SA)
+
+3.3 RL algorithms studied
+
+3.3.1 DQN
+
+3.3.2 A2C
+
+3.3.3 PPO
+
+3.3.4 REINFORCE
+
+Implementation
+
+4.1 Environment design: a Gymnasium-compatible milling PdM POMDP
+
+4.1.1 Design goals and schema abstraction
+
+4.1.2 Observation design: wear is hidden
+
+4.1.3 Action space and episode termination
+
+4.1.4 Reward shaping and asymmetric PdM risk
+
+4.2 Evaluation protocol implementation
+
+4.2.1 Multi-round evaluation
+
+4.2.2 Unseen-only emphasis
+
+4.3 Dataset schemas and sensor signals
+
+4.4 Default constants and hyperparameters
+
+Evaluation metrics
+
+5.1 Prognostic-specific λ metric
+
+5.2 Composite evaluation score
+
+Experimental setup
+
+6.1 Datasets and generalization protocol
+
+6.2 Model grid
+
+6.3 Multi-round evaluation
+
+Results
+
+7.1 Overall performance and best configurations
+
+7.2 Hypothesis testing: is REINFORCE better?
+
+7.3 Why REINFORCE + (MH/TP) can match or exceed PPO
+
+Discussion: implications for edge computing and sustainability
+
+Limitations and future work
+
+Conclusion
+
+Code and data availability
+
+
+AutoRL artcile contents
+
+1. Introduction  
+
+1.1 Research objectives and hypotheses  
+
+1.2 Contributions
+
+2. Background and related work  
+
+2.1 PdM, Industry 4.0, and edge constraints  
+
+2.2 RL for predictive maintenance  
+
+2.3 AutoRL and practitioner-centered experimentation  
+
+2.4 Attention mechanisms for PdM  
+
+2.5 Lightweight vs deep RL in PdM  
+
+2.6 Edge deployment, TinyML, and embedded RL
+
+3. Foundations: PdM as an MDP/POMDP and RL algorithms  
+
+3.1 PdM as a decision process  
+
+3.2 Partial observability in milling PdM  
+
+3.3 RL algorithms compared
+
+4. Problem formulation: asymmetric costs and decision rationale  
+
+4.1 A cost-aware view of the binary action  
+
+4.2 Why attention matters under partial observability
+
+5. AutoRL pipeline for practitioner-centered experimentation  
+
+5.1 Search space and experiment grid  
+
+5.2 Checkpointing and failure recovery
+
+6. Environment design: a Gymnasium-compatible milling PdM POMDP  
+
+6.1 Design goals and schema abstraction  
+
+6.2 Observation and action spaces  
+
+6.3 Reward shaping for asymmetric PdM risk
+
+7. Attention mechanisms as lightweight feature extractors  
+
+7.1 Nadaraya-Watson attention (NW)  
+
+7.2 Temporal attention (TP)  
+
+7.3 Multi-head attention (MH)  
+
+7.4 Self-attention (SA)
+
+8. Implementation details and reproducibility  
+
+8.1 REINFORCE implementation  
+
+8.2 Baselines and tooling
+
+9. Experimental design  
+
+9.1 Datasets and generalization protocol  
+
+9.2 Evaluation metrics  
+
+9.3 Multi-round evaluation, confidence intervals, and hypothesis tests  
+
+9.4 Training budget and default configuration  
+
+9.5 Panels and reporting
+
+10. Results  
+
+10.1 Visual summaries: analysis dashboards and generalization heatmaps  
+
+10.2 Hypothesis tests (H1): REINFORCE vs A2C/DQN/PPO  
+
+10.3 Dataset-level interpretation  
+
+10.4 Quantitative IEEE summary (means and 95% CI)  
+
+10.5 Attention improves REINFORCE (H3)  
+
+10.6 Practical recommendation  
+
+10.7 Statistical heatmaps: p-values and t-statistics  
+
+10.8 H2: cross-schema generality (SIT vs IEEE)
+
+
+11. Discussion  
+
+11.1 Why lightweight REINFORCE can win in this PdM setup  
+
+11.2 Implications for industrial practitioners  
+
+11.3 Edge compute and sustainability framing
+
+12. Limitations and threats to validity
+
+13. Conclusions and future work
+
+14. Appendix: Environment and reward details  
+
+14.1 Observation design and POMDP rationale  
+
+14.2 Reward components
+
+15. Appendix: Evaluation protocol details  
+
+15.1 Multi-round evaluation  
+
+15.2 Unseen-only emphasis
+
+16. Appendix: Dataset schemas and sensor signals
+
+17. Appendix: Default constants and hyperparameters

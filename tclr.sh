@@ -1,4 +1,6 @@
 rm *.aux
+rm *.blg
+rm *.bbl
 rm *.fls
 rm *.log
 rm *.out

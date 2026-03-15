@@ -1169,14 +1169,24 @@ def load_model_metadata(model_path):
         return {}
 
 ## $$$$ Evaluate Trained Model
-def evaluate_trained_model(model_path, data_file, wear_threshold=None, seed=42):
+def evaluate_trained_model(model_path, data_file, wear_threshold=None, seed=42, deterministic: bool = True):
     """
-    Evaluates a trained model on a specific data file with IAR and Model Override logic.
+        Evaluates a trained model on a specific data file with IAR and Model Override logic.
+
+        Notes:
+        - When deterministic=False, actions are sampled stochastically from the policy.
+            This enables multi-round evaluation to capture policy stochasticity.
+        - Evaluation runs step-by-step (not in one large batch) to ensure feature extractors
+            with internal timestep state (e.g., Temporal/Hybrid) evolve consistently.
     """
     # Set seed for reproducibility of random overrides
     import random
     random.seed(seed)
     np.random.seed(seed)
+    try:
+        th.manual_seed(seed)
+    except Exception:
+        pass
     
     # 1. Configuration
     # Use provided threshold or default to global
@@ -1228,11 +1238,21 @@ def evaluate_trained_model(model_path, data_file, wear_threshold=None, seed=42):
     # We must use the same environment setup as training
     env = MT_Env(data_file, wear_threshold=eval_wear_threshold) 
     
-    # 3. Run Evaluation (Pre-calculate all actions)
+    # Reset any feature extractor internal timestep state (Temporal/Hybrid)
+    try:
+        fe = getattr(model, "policy", None)
+        fe = getattr(fe, "features_extractor", None)
+        if fe is not None and hasattr(fe, "current_timestep"):
+            fe.current_timestep.zero_()
+    except Exception:
+        pass
+
+    # 3. Run Evaluation (step-by-step predictions)
     # We simulate the entire dataset state-by-state to get what the model WOULD do
     full_data_len = len(env.data)
     all_obs = []
     all_wear = []
+    all_actions = []
     
     for i in range(full_data_len):
         # Manually set env step to get observation
@@ -1240,14 +1260,14 @@ def evaluate_trained_model(model_path, data_file, wear_threshold=None, seed=42):
         obs = env._get_obs()
         all_obs.append(obs)
         all_wear.append(env.data.iloc[i]['tool_wear'])
-        
-    # Helper to predict in batch or valid loop
-    # Convert list of obs to numpy array
-    all_obs_np = np.array(all_obs)
-    
-    # Get all actions
-    all_actions, _ = model.predict(all_obs_np, deterministic=True)
-    # all_actions is array of 0s and 1s
+        # Predict action for this observation
+        action, _ = model.predict(obs, deterministic=deterministic)
+        # SB3 returns shape (n_envs,) or scalar-like; normalize to int
+        if isinstance(action, (list, tuple, np.ndarray)):
+            action_i = int(np.array(action).reshape(-1)[0])
+        else:
+            action_i = int(action)
+        all_actions.append(action_i)
     
     # 4. Apply Logic
     final_actions = np.ones(full_data_len, dtype=int) # Default CONTINUE (1)

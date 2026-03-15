@@ -929,7 +929,12 @@ def evaluate_agents(schema: str, trained_models: Dict, skip_individual_plots: bo
 
                 try:
                     # ── Initial evaluation for this round ─────────────────────
-                    eval_result = rl_pdm.evaluate_trained_model(model_path, test_file, seed=base_seed)
+                    eval_result = rl_pdm.evaluate_trained_model(
+                        model_path,
+                        test_file,
+                        seed=base_seed,
+                        deterministic=(not is_multi),
+                    )
 
                     if eval_result.get('error', False):
                         print(f"  [!] {test_filename} R{round_i}: Feature mismatch – skipping")
@@ -953,7 +958,10 @@ def evaluate_agents(schema: str, trained_models: Dict, skip_individual_plots: bo
                                     # Seeds are both round- and retry-aware for maximum spread
                                     retry_seed = (round_i * 1000 + retry_i * 97 + 31) % 9973
                                     retry_result = rl_pdm.evaluate_trained_model(
-                                        model_path, test_file, seed=retry_seed
+                                        model_path,
+                                        test_file,
+                                        seed=retry_seed,
+                                        deterministic=False,
                                     )
                                     if retry_result.get('error', False):
                                         continue
@@ -1917,13 +1925,13 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python train_agent.py -S SIT -A PPO,A2C -E 200 -AM 0
-  python train_agent.py -S IEEE -A PPO -E 300 -AM 1
-  python train_agent.py -S IEEE -A PPO -E 300 -AM 'NW', 'TP', 'MH', 'SA'
-  python train_agent.py -S SIT -A PPO -E 200 -LR 0.001,0.0001 -G 0.95,0.99  # Grid search
-  python train_agent.py -V -S IEEE  # Evaluate IEEE models
-  python train_agent.py -D -S SIT   # Just list SIT models
-  python train_agent.py  # Uses all defaults: SIT, PPO, 200 episodes, no attention
+    python code/batch_train.py -S SIT -A PPO,A2C -E 200 -AM 0
+    python code/batch_train.py -S IEEE -A PPO -E 300 -AM 1
+    python code/batch_train.py -S IEEE -A PPO -E 300 -AM MH
+    python code/batch_train.py -S SIT -A PPO -E 200 -LR 0.001,0.0001 -G 0.95,0.99  # Grid search
+    python code/batch_train.py -V -S IEEE  # Evaluate IEEE models
+    python code/batch_train.py -D -S SIT   # Just list SIT models
+    python code/batch_train.py  # Uses all defaults: SIT, PPO, 200 episodes, no attention
         """
     )
     

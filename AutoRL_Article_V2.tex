@@ -1,23 +1,27 @@
 % --------------------------------------------------------------------------------
-% AutoRL for Predictive Maintenance
-% Author: Rajesh Siraskar
-% Date: 14-Mar-2026
-% Artefacts: code/, figures and reports/
+% COMBINED.tex
+% AutoRL for Predictive Maintenance (combined manuscript)
+% Parent: Article_VSC.tex
+% Merged in: AutoRL_for_PdM.tex (Results section preserved)
+% Date: 16-Mar-2026
 % --------------------------------------------------------------------------------
+
 \documentclass[11pt]{article}
 
 \usepackage[margin=1in]{geometry}
 \usepackage{amsmath, amssymb, amsfonts}
 \usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage[table]{xcolor}
 \usepackage{graphicx}
+\graphicspath{{figures/}{paper/figures/}}
 \usepackage{subcaption}
 \usepackage{caption}
 \usepackage{array}
-\usepackage{siunitx}
 \usepackage{setspace}
 \usepackage{csquotes}
+\usepackage{listings}
 \usepackage{hyperref}
-\usepackage[table]{xcolor}
 \usepackage[nameinlink,noabbrev]{cleveref}
 
 \usepackage[style=apa,backend=biber,sorting=nyt]{biblatex}
@@ -26,7 +30,7 @@
 
 \newcommand{\autorlFigRoot}{\detokenize{figures and reports}}
 \IfFileExists{\detokenize{paper/figures and reports/SIT_Results/_Analysis_Report_SIT_Set-1.jpg}}{%
-	\renewcommand{\autorlFigRoot}{\detokenize{paper/figures and reports}}%
+  \renewcommand{\autorlFigRoot}{\detokenize{paper/figures and reports}}%
 }{}
 
 \newcommand{\autorlTableRoot}{tables}
@@ -34,27 +38,73 @@
 	\renewcommand{\autorlTableRoot}{paper/tables}%
 }{}
 
-\hypersetup{colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  citecolor=blue,
+  urlcolor=blue
+}
 
 \captionsetup{labelfont=bf, textfont=bf}
 \sisetup{round-mode=places, round-precision=3, detect-weight=true}
 \onehalfspacing
 
-\title{AutoRL for Predictive Maintenance\\\large Reinforcement learning with lightweight attention for milling-machine tool replacement under edge constraints}
-\author{Rajesh Siraskar\\\small PhD Research (SCRI, SIT Pune)\\\small \texttt{(email)}}
+\lstset{
+	basicstyle=\ttfamily\footnotesize,
+	columns=fullflexible,
+	breaklines=true,
+	frame=single,
+	xleftmargin=0.5em,
+	xrightmargin=0.5em,
+	aboveskip=0.8em,
+	belowskip=0.8em
+}
+
+\title{AutoRL for Predictive Maintenance on the Edge: \texorpdfstring{\newline}{ }A Comparative Study of REINFORCE with Attention Mechanisms for Milling Tool Replacement}
+
+\author{Rajesh Siraskar\\
+\small V.2.0\\
+\small (SCRI SIT Pune)\\
+\small \texttt{(email)}
+}
+
 \date{\today}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-Predictive maintenance (PdM) is a flagship Industry~4.0 application because it couples condition monitoring with prescriptive decision-making. In practice, PdM is increasingly deployed at the edge, where strict compute, memory, and energy constraints make the cost of sophisticated deep reinforcement learning (RL) methods a first-class concern. This paper studies an automated reinforcement learning pipeline (AutoRL) that trains and evaluates maintenance agents for milling-machine tool replacement, and tests three hypotheses: (H1) the computationally light REINFORCE algorithm can outperform more advanced baselines (A2C, DQN, PPO), (H2) the same Gymnasium-compatible environment and reward design generalize across two different milling-machine sensor schemas (SIT and IEEE), and (H3) lightweight attention mechanisms can close remaining gaps by improving state representation for REINFORCE.
+Industry~4.0 maintenance systems increasingly rely on edge-computing deployments where stringent limits on memory, latency, and energy consumption favor computationally light learning methods. In this work we study \emph{AutoRL}, an automated reinforcement learning (RL) pipeline that trains and evaluates maintenance agents for a milling machine tool-replacement task, with particular focus on whether the na\"{i}ve Monte-Carlo policy-gradient algorithm \textsc{REINFORCE} can be competitive with more advanced methods such as \textsc{PPO}. The contribution is threefold: (i) an end-to-end AutoRL training and multi-round evaluation framework, (ii) a Gymnasium-compatible predictive-maintenance environment that hides tool wear from observations to enforce inference from sensor signals alone, and (iii) a systematic comparison across four RL algorithms (\textsc{A2C}, \textsc{DQN}, \textsc{PPO}, \textsc{REINFORCE}) and four attention mechanisms (Nadaraya--Watson, Temporal, Multi-Head, Self-Attention) integrated as Stable-Baselines3 feature extractors.
 
-We contribute (i) a practitioner-oriented AutoRL CLI pipeline with checkpointed batch execution, (ii) a schema-adaptive PdM environment that hides tool wear from observations to enforce realistic partial observability, (iii) a unified study across four RL algorithms and four attention mechanisms (Nadaraya--Watson, temporal attention, multi-head attention, self-attention), and (iv) empirical evidence using multi-round evaluation on unseen data with prognostic-aware metrics (evaluation score, tool-use, and a timing-based $\lambda$ metric inspired by offline prognostic evaluation). Hypothesis testing at $\alpha=0.05$ supports REINFORCE as a strong candidate for edge-first PdM, and identifies REINFORCE with multi-head attention as the most consistently strong configuration across schemas.
+Across 48 trained agents (3 training files $\times$ 4 algorithms $\times$ 4 attention mechanisms) and 20 evaluation rounds per configuration, tested on six unseen files, \textsc{REINFORCE} paired with temporal or multi-head attention is consistently among the top-performing configurations and is statistically superior to A2C and DQN baselines in unseen-only panels (one-tailed Welch $t$-tests, $\alpha=0.05$). Against PPO, the evidence is schema-dependent, and results support \textsc{REINFORCE} as a lightweight, competitive alternative when combined with attention-based inductive biases aligned with edge and sustainability constraints.
 \end{abstract}
 
-\textbf{Keywords:} predictive maintenance; Industry~4.0; edge computing; reinforcement learning; AutoRL; REINFORCE; attention mechanisms; milling machine.
+\textbf{Keywords:} Predictive maintenance; Industry~4.0; Edge computing; Reinforcement learning; \textsc{REINFORCE}; \textsc{PPO}; Attention mechanisms; Milling machine; Sustainable AI.
 
+% -----------------------------------------------------------------------------
+% Parent narrative (from Article_VSC.tex)
+% -----------------------------------------------------------------------------
+\section{Context: Industry~4.0/5.0, predictive maintenance, and edge constraints}
+Predictive maintenance (PdM) is a foundational Industry~4.0 capability: instrumented assets continuously produce sensor telemetry and maintenance decisions are optimized to reduce unplanned downtime and extend component life. In practical deployments, PdM must increasingly operate at the \emph{edge}---near machines and shop-floor controllers---to meet latency, bandwidth, and reliability constraints, and to reduce operational risk associated with centralized compute.
+
+Edge deployment imposes hard resource limits (compute cycles, memory footprint, and energy), motivating \emph{lightweight} ML/RL models and training procedures. These constraints directly relate to sustainability considerations: lower compute and shorter training runs reduce electricity consumption and associated carbon emissions, which is increasingly relevant in corporate carbon accounting and Industry~5.0 human-centric and sustainable manufacturing initiatives. Recent work in ``Green AI'' emphasizes reporting and minimizing computational cost as a first-class metric alongside accuracy~\cite{Schwartz2020GreenAI, Strubell2019Energy}.
+
+Beyond operational cost, reducing computational demand supports organizational carbon-footprint targets and can strengthen evidence bases used in carbon-credit and ESG reporting workflows, making ``efficient learning'' practically consequential rather than purely academic.
+
+In this setting, a key research question emerges:
+\begin{quote}
+\emph{Can simple, computationally light RL algorithms such as \textsc{REINFORCE} be competitive with more advanced policy-optimization methods (e.g., \textsc{PPO}) for PdM decision-making, especially when augmented with attention-based feature extraction?}
+\end{quote}
+
+This study builds directly on prior findings that na\"{i}ve \textsc{REINFORCE} can perform strongly for PdM in untuned regimes and that automated RL frameworks can help industrial practitioners explore algorithm--hyperparameter design spaces~\cite{Siraskar2025NaiveREINFORCE}. It also leverages prior work applying a Nadaraya--Watson estimator as a lightweight attention mechanism for PdM, motivated by edge constraints~\cite{Siraskar2024NWAttention}.
+
+\section{AutoRL overview (high level)}
+AutoRL is designed as a practical experimentation platform to (i) train multiple RL agents over a grid of algorithmic choices and hyperparameters, (ii) evaluate agents on multiple test files using prognostic-aware metrics, and (iii) generate standardized analysis artefacts (dashboards, heatmaps, and hypothesis-test summaries) for model selection. In this repository snapshot, the primary entry point is a CLI pipeline (\texttt{code/batch\_train.py}) that supports training, discovery of trained models, and evaluation in single-round or multi-round modes. Multi-round evaluation produces a ``long'' CSV with all repetitions to support statistical analysis (e.g., Welch $t$-tests).
+
+% -----------------------------------------------------------------------------
+% Merged manuscript body (from AutoRL_for_PdM.tex)
+% Note: Results section is preserved from AutoRL_for_PdM.tex.
+% -----------------------------------------------------------------------------
 \section{Introduction}
 \label{sec:intro}
 Predictive maintenance (PdM) aims to intervene \emph{before} functional failure while maximizing asset utilization and protecting product quality. In Industry~4.0 deployments, sensorized manufacturing assets generate rich telemetry streams that enable condition-aware decision support and prescriptive control \parencite{Zonta2020PdM, Compare2020IoT}. However, the operational setting for PdM is increasingly edge-centric: decisions must be made close to equipment with bounded latency and without guaranteed cloud connectivity. Under these constraints, the cost profile of learning methods matters. In particular, compute-intensive deep RL algorithms may be difficult to train broadly (e.g., within AutoRL sweeps) or to deploy reliably on constrained devices \parencite{Njor2024TinyML, Pandey2023EdgeDNN}.
@@ -189,6 +239,9 @@ The AutoRL pipeline is implemented as a CLI batch runner (\texttt{code/batch\_tr
 \end{itemize}
 For this study, multi-round evaluation uses 20 rounds (\texttt{EVAL\_ROUNDS=20}) to support confidence intervals and statistical tests.
 
+\subsection{Workflow, outputs, and reproducibility artefacts}
+The CLI provides: (i) training and evaluation orchestration, (ii) model discovery, and (iii) plot/report generation. Typical artefacts include trained model files, per-run metadata JSON (algorithm, attention type, training file, learning rate, $\gamma$, episodes), ``long'' CSV outputs for multi-round evaluation, and summary plots (analysis dashboards, generalization heatmaps, and statistical heatmaps). Checkpointing is implemented via a lightweight SQLite database to support recovery from interruptions.
+
 \subsection{Search space and experiment grid}
 The AutoRL study evaluates combinations of:
 \begin{itemize}
@@ -222,6 +275,9 @@ This design reflects a practical PdM asymmetry: a late replacement causing quali
 \label{sec:attention}
 Because wear is hidden from observation, the core challenge is representation learning from sensor vectors. We implement attention mechanisms as feature extractors $\phi_\theta(\mathbf{x}_t)$ that map a raw sensor vector into a compact embedding used by the RL policy.
 
+\paragraph{Note on terminology.}
+We use ``attention'' as a unifying design label for a family of feature extractors that implement (i) learned reweighting/gating and (ii) structured fusion of sensor features and (optionally) time context. Some extractors are ``attention-inspired'' rather than textbook token-wise attention over sequences; where the implementation deviates from standard formulations, we state this explicitly.
+
 \subsection{Nadaraya--Watson attention (NW)}
 NW attention can be interpreted as kernel-regression-based soft retrieval from learnable prototypes. With query $\mathbf{q}$ and keys $\{\mathbf{k}_i\}$:
 \begin{equation}
@@ -230,14 +286,74 @@ NW attention can be interpreted as kernel-regression-based soft retrieval from l
 \end{equation}
 This mechanism is computationally light and aligns with prior PdM attention work motivated by edge constraints \parencite{Siraskar2024NWAttention}.
 
+\paragraph{Theory-to-code mapping.}
+In \texttt{code/rl\_pdm.py}, NW attention is implemented as a learned prototype memory with a strictly-positive bandwidth parameter $\beta=\exp(\log\beta)$:
+\begin{lstlisting}[language=Python]
+# NadarayaWatsonExtractor.forward (code/rl_pdm.py)
+query = self.query_net(observations)          # q
+dist  = (query.unsqueeze(1) - self.keys.unsqueeze(0)).pow(2).sum(dim=2)
+beta  = th.exp(self.log_beta)                 # beta > 0
+alpha = th.softmax(-beta * dist, dim=1)       # softmax over prototypes
+context = (alpha.unsqueeze(2) * self.values.unsqueeze(0)).sum(dim=1)
+return context
+\end{lstlisting}
+
 \subsection{Temporal attention (TP)}
 Temporal attention injects an explicit stage-of-life signal using sinusoidal positional encodings and a learnable temporal embedding \parencite{Vaswani2017Attention}. It fuses (i) a soft spatial mask over sensor channels and (ii) a time-dependent encoding. This is a lightweight alternative to recurrent memory while still providing a monotonic time context.
+
+\paragraph{Theory-to-code mapping.}
+The implementation combines an MLP-based spatial attention mask with a positional encoding lookup indexed by an internal timestep counter:
+\begin{lstlisting}[language=Python]
+# TemporalAttentionExtractor.forward (code/rl_pdm.py)
+spatial_weights = self.spatial_attention(observations)
+weighted_spatial = observations * spatial_weights
+
+timestep_idx = int(self.current_timestep.item()) % self.max_timesteps
+temporal_encoding = self.positional_encoding[timestep_idx]
+temporal_features = temporal_encoding + self.temporal_embedding
+
+combined = th.cat([weighted_spatial, temporal_features.expand(batch_size, -1)], dim=1)
+output = self.fusion_net(combined)
+self.current_timestep += 1
+return output
+\end{lstlisting}
 
 \subsection{Multi-head attention (MH)}
 Multi-head attention uses multiple attention heads to represent different subspaces of sensor relationships \parencite{Vaswani2017Attention}. In our implementation, attention is computed across heads for each observation vector, resulting in a gated mixture of subspace features. Empirically, MH emerges as the strongest and most consistent attention mechanism across datasets (\cref{sec:results}).
 
+\paragraph{Theory-to-code mapping.}
+Because the input is a single feature vector (not a token sequence), the code computes a per-head compatibility score $s_h \propto \langle \mathbf{Q}_h,\mathbf{K}_h\rangle$ and normalizes across heads ($h=1,\dots,H$):
+\begin{lstlisting}[language=Python]
+# MultiHeadAttentionExtractor.forward (code/rl_pdm.py)
+Q = self.query_proj(observations).view(batch, H, d)
+K = self.key_proj(observations).view(batch, H, d)
+V = self.value_proj(observations).view(batch, H, d)
+
+scores  = th.einsum('bhd,bhd->bh', Q, K) * self.scale
+alpha_h = th.softmax(scores, dim=1).unsqueeze(2)    # softmax over heads
+attended = alpha_h * V
+concat = attended.view(batch, H * d)
+return self.output_proj(concat)
+\end{lstlisting}
+
 \subsection{Self-attention (SA)}
 Self-attention projects the observation into a feature space and uses a compact Transformer-style block with residual connections and layer normalization. In this implementation, the softmax normalization is across the batch dimension; this can act as a stabilization/gating mechanism, though it differs from token-wise self-attention.
+
+\paragraph{Theory-to-code mapping and deviation from standard self-attention.}
+Standard self-attention computes pairwise weights across tokens/features. Here, the implementation computes a scalar score per sample and normalizes across the batch. Concretely, for each batch element $i$ it forms $s_i=(\mathbf{q}_i\odot\mathbf{k}_i)^\top\mathbf{1}/\sqrt{d}$, then $\alpha=\mathrm{softmax}(\mathbf{s})$ across $i$ (batch axis), and outputs $\alpha_i\mathbf{v}_i$ with residual + FFN:
+\begin{lstlisting}[language=Python]
+# SelfAttentionExtractor.forward (code/rl_pdm.py)
+x = self.input_proj(observations)
+Q = self.query(x); K = self.key(x); V = self.value(x)
+
+scores = (Q * K).sum(dim=1, keepdim=True) * self.scale
+alpha  = th.softmax(scores, dim=0)          # normalize across batch
+attn_output = alpha * V
+
+x = self.norm1(x + attn_output)
+x = self.norm2(x + self.ffn(x))
+return x
+\end{lstlisting}
 
 \section{Implementation details and reproducibility}
 \label{sec:implementation}
@@ -272,6 +388,26 @@ We report three metrics used by the AutoRL evaluation:
 	\item \textbf{$\lambda$ timing metric:} a signed timing error between desired first replacement timing and the actual first replacement time.
 \end{itemize}
 
+\paragraph{Exact evaluation score definition (as implemented).}
+The paper-level ``evaluation score'' corresponds to \texttt{calculate\_eval\_score()} in \texttt{code/batch\_train.py}. Let $u\in[0,1]$ be tool usage fraction at first replacement (or a penalized proxy if no replacement occurs), $v\in\mathbb{N}_0$ be the number of post-threshold timesteps without replacement (threshold violations), and $\lambda=t_{\lambda}-t_{\mathrm{FR}}$ be the signed timing error (\cref{sec:metrics}). The implemented score is
+\begin{align}
+S_{\text{tool}} &= \mathrm{clip}(u,0,1),\\
+S_{\lambda} &= \max\left(0,\,1-\frac{|\lambda|}{c_{\lambda}}\right),\\
+S_{\text{viol}} &= \frac{1}{1+v},\\
+\mathrm{EvalScore} &= 0.50\,S_{\text{tool}} + 0.30\,S_{\lambda} + 0.20\,S_{\text{viol}}.
+\end{align}
+Here $c_{\lambda}$ is the normalization constant used by \texttt{calculate\_eval\_score()}, implemented as $c_{\lambda}=\texttt{WEAR\_THRESHOLD}\,(1-\texttt{IAR\_RANGE})$. Note that in the current codebase $\lambda$ is measured in \emph{timesteps} (\texttt{rl\_pdm.evaluate\_trained\_model}), whereas $c_{\lambda}$ is derived from a \emph{wear} threshold; thus the ratio $|\lambda|/c_{\lambda}$ should be interpreted as an implementation-defined heuristic scaling rather than a dimensionally normalized quantity. Additionally, the $t_{\lambda}$ event is triggered using \texttt{IAR\_lower} computed in \texttt{rl\_pdm.py} as $\texttt{WEAR\_THRESHOLD}-2\,(\texttt{WEAR\_THRESHOLD}\cdot\texttt{IAR\_RANGE})$, which differs from $c_{\lambda}$.
+
+\paragraph{Implementation reference.}
+\begin{lstlisting}[language=Python]
+# calculate_eval_score (code/batch_train.py)
+tool_usage_score = min(1.0, max(0.0, tool_usage_pct))
+IAR_LOWER = rl_pdm.WEAR_THRESHOLD * (1.0 - rl_pdm.IAR_RANGE)
+lambda_score = max(0.0, 1.0 - (abs(lambda_metric) / IAR_LOWER))
+violation_score = max(0.0, 1.0 / (1.0 + violations))
+eval_score = 0.50*tool_usage_score + 0.30*lambda_score + 0.20*violation_score
+\end{lstlisting}
+
 \paragraph{$\lambda$ metric and offline prognostic evaluation.}
 We implement a timing metric inspired by offline prognostic evaluation concepts \parencite{Saxena2008Metrics}. Define $t_{\lambda}$ as the first timestep where wear exceeds an ``in-advance replacement'' (IAR) lower bound. Let $t_{\mathrm{FR}}$ be the first replacement timestep. Then
 \begin{equation}
@@ -282,12 +418,21 @@ Lower $|\lambda|$ is better; $\lambda=0$ corresponds to replacing exactly at the
 \subsection{Multi-round evaluation, confidence intervals, and hypothesis tests}
 Each trained model is evaluated for 20 rounds on unseen data. We report mean values and 95\% confidence intervals where raw results are available (IEEE). Hypothesis testing uses one-tailed Welch $t$-tests (provided as CSV artefacts) at $\alpha=0.05$.
 
+\paragraph{What varies across rounds (policy stochasticity + seeding).}
+Multi-round evaluation is designed to quantify variance from \emph{stochastic decision policies} rather than resampling the dataset (the environment replays a fixed run). Concretely, \texttt{code/batch\_train.py} assigns a distinct seed per (round, retry), and calls \texttt{evaluate\_trained\_model(..., deterministic=False)} so actions are sampled stochastically from the policy. To keep temporal feature extractors consistent with episode progression, \texttt{evaluate\_trained\_model} executes predictions step-by-step (not as a single batch), and attempts to reset any internal timestep counters at the start of evaluation.
+
+\paragraph{Statistical caveats.}
+The $t$-tests are used as a practical, automated comparison tool for the AutoRL grid and should be interpreted with standard cautions: (i) multiple comparisons are performed across algorithms/attention panels and no correction is applied, and (ii) repeated evaluation rounds on the same test file can introduce dependence (pseudoreplication). Accordingly, the statistical panels are best treated as evidence of consistent trends rather than as definitive confirmatory inference; effect sizes and robustness checks (e.g., bootstrap confidence intervals or nonparametric tests) are recommended in follow-up analysis.
+
 \subsection{Training budget and default configuration}
 The batch pipeline enumerates learning rates and discount factors ($\gamma$) as part of the AutoRL grid (stored in the checkpoint queue and reported with the analysis artefacts). For reproducibility, key environment constants (thresholds, reward weights, IAR range, and default learning settings) are summarized in \cref{app:defaults}. These constants are taken directly from the implementation in \texttt{code/rl\_pdm.py}.
 
 \subsection{Panels and reporting}
 The hypothesis-test artefacts provide multiple panels (e.g., ``with self-eval'' vs ``unseen only'', and ``all attention'' vs ``best attention''). This paper emphasizes \emph{unseen-only} panels because they align with the intended PdM deployment assumption: policies should generalize to new runs rather than overfit to the training trace.
 
+% -----------------------------------------------------------------------------
+% Results (kept essentially intact from AutoRL_for_PdM.tex)
+% -----------------------------------------------------------------------------
 \section{Results}
 \label{sec:results}
 This section presents results for SIT Set-1, SIT Set-2, and IEEE using the provided analysis dashboards, heatmaps, and statistical heatmaps. IEEE additionally includes an evaluation CSV enabling summary tables.
@@ -482,7 +627,7 @@ The reward logic uses constants $R_1$--$R_4$ and a large catastrophic penalty wh
 		$R_2$ violation penalty & continue and violate & Strongly discourages threshold violation.\\
 		$R_3$ replacement cost & replace action & Regularizes against replacing too early.\\
 		$R_4$ near-threshold bonus & replace near $\tau$ & Rewards timely replacement close to threshold.\\
-		Stepwise bonuses & wear ratio \,$\ge 0.7,0.8,0.9$ & Increases incentive as wear approaches threshold.\\
+		Stepwise bonuses & wear ratio $\,\ge 0.7, 0.8, 0.9$ & Increases incentive as wear approaches threshold.\\
 		\bottomrule
 	\end{tabular}
 \end{table}

@@ -1,6 +1,8 @@
 /storage
 /tex_storage
 /.DS_Store
+.vscode/
+/.vscode
 
 *.pdf
 

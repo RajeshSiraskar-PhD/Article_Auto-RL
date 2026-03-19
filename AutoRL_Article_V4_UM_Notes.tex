@@ -1,9 +1,7 @@
 % --------------------------------------------------------------------------------
-% COMBINED.tex
-% AutoRL for Predictive Maintenance (combined manuscript)
-% Parent: Article_VSC.tex
-% Merged in: AutoRL_for_PdM.tex (Results section preserved)
-% Date: 16-Mar-2026
+% AutoRL_Combined_Final.tex
+% Final combined manuscript (Article-2 base + Article-1 technical enrichments)
+% Date: 19-Mar-2026
 % --------------------------------------------------------------------------------
 
 \documentclass[11pt]{article}
@@ -134,10 +132,23 @@ This paper contributes:
 \section{Background and related work}
 \label{sec:background}
 \subsection{PdM, Industry~4.0, and edge constraints}
-PdM is commonly positioned as an Industry~4.0 centerpiece because it links sensing, connectivity, analytics, and operational decision-making in cyber-physical production systems \parencite{Compare2020IoT, Zonta2020PdM}. Edge deployment strengthens this positioning but also introduces feasibility constraints: memory, compute, latency, and system-integration overhead can limit the practical adoption of complex ML/RL pipelines \parencite{Njor2024TinyML, Pandey2023EdgeDNN}. These constraints also connect to sustainability and ``Green AI'' concerns: when many candidate agents are trained during AutoRL exploration, the incremental cost per training run becomes operationally and environmentally relevant \parencite{Schwartz2020GreenAI, Strubell2019Energy}.
+PdM is commonly positioned as an Industry~4.0 centerpiece because it links sensing, connectivity, analytics, and operational decision-making in cyber-physical production systems \parencite{Compare2020IoT, Zonta2020PdM}. Prescriptive maintenance architectures further motivate this role by embedding decision-making (when to defer vs intervene) into cyber-physical workflows \parencite{Ansari2019PriMa}. Edge deployment strengthens the PdM case by enabling low-latency, resilient operation near equipment, but it also introduces feasibility constraints: memory, compute, latency, and system-integration overhead can limit the practical adoption of complex ML/RL pipelines \parencite{Njor2024TinyML, Pandey2023EdgeDNN}. These constraints connect to sustainability and ``Green AI'' concerns: when many candidate agents are trained during AutoRL exploration, the incremental cost per training run becomes operationally and environmentally relevant \parencite{Schwartz2020GreenAI, Strubell2019Energy}.
 
 \subsection{RL for predictive maintenance}
-RL has been surveyed extensively in PdM, with evidence that a wide range of formulations have been explored across maintenance scheduling, inspection, and resource-constrained decision problems \parencite{Siraskar2023RLReview}. A key theme is that the suitable complexity level depends on the decision space and the deployment constraints. This motivates a direct comparison between a lightweight method (REINFORCE) and widely-used deep RL baselines (A2C, DQN, PPO).
+RL has been surveyed extensively in PdM, with evidence that a wide range of formulations have been explored across maintenance scheduling, inspection, and resource-constrained decision problems \parencite{Siraskar2023RLReview, Ogunfowora2023, Zhang2024}. A consistent theme across these surveys is that the ``right'' RL complexity level depends on (i) the structure of the decision problem (action-space size, horizon, coupling) and (ii) deployment realism (compute, memory, latency).
+
+%% From UM_BACKGROUND:
+The literature also suggests a useful two-stream picture. Many PdM and condition-based maintenance studies learn effective policies using non-deep or otherwise lightweight RL, especially when state representations are structured and action spaces are modest \parencite{Adsule2020CBMRL, Yousefi2020QualityEngineering, Rasay2024JointOptimization, Dadash2024Lifespan}. Deep RL (e.g., DQN/PPO-style methods) becomes more prominent as environments become richer and harder: higher-dimensional sensing, long-horizon tradeoffs, multi-component scheduling, or coupled resource constraints \parencite{Liu2020EJOR, Chen2023IISE, LeeMitici2022RESS, Ong2022TransferDRL}.
+
+This motivates a direct comparison between a lightweight method (REINFORCE) and widely-used deep RL baselines (A2C, DQN, PPO) under a shared environment and evaluation protocol.
+
+%% From UM_literature_resarch:
+\subsection{Positioning lightweight RL for edge PdM (qualified defense)}
+The strongest literature-backed position is a \emph{qualified defense} of lightweight RL for edge PdM: the literature does not establish that REINFORCE is universally better than advanced deep RL, but it does support the claim that lightweight methods are often the more credible engineering choice when the PdM task is structured and edge constraints are first-order requirements \parencite{Compare2020IoT, Njor2024TinyML, Pandey2023EdgeDNN}. In embedded RL more broadly, deep RL frequently requires additional machinery---transfer learning, pruning, compression, or distillation---to fit acutely constrained devices \parencite{Jang2020KnowledgeTransfer, Szydlo2022TinyRL, Xu2022ISORC}.
+
+Sustainability motivations should also be framed carefully. Maintenance optimization can contribute to energy and emissions objectives in industrial systems, but the PdM literature rarely reports algorithm-level energy draw or carbon footprints for competing RL methods. Accordingly, ``Green AI'' claims in this paper are positioned as downstream implications of reduced computational demand and edge-feasible deployment, not as directly measured environmental outcomes \parencite{Banyai2021Energies, Banyai2022Sustainability, JasiulewiczKaczmarek2024Maintenance40}.
+
+This framing also shapes how we interpret statistical comparisons. Hypothesis tests in this paper are used to argue that observed differences are unlikely under the chosen experimental design, not to claim universal superiority across all PdM deployments \parencite{Zhang2024}.
 
 \subsection{AutoRL and practitioner-centered experimentation}
 AutoRL refers to automating choices that otherwise require expert RL knowledge: algorithm selection, hyperparameter tuning, reward shaping, and robust evaluation. Prior work emphasizes that automation can improve performance and reproducibility, and can lower the barrier for non-expert adoption \parencite{Faust2019EvolvingRewards, Mussi2023ARLO}. For industrial practitioners, this design goal is particularly important: the tool should help them select a high-performing agent without requiring deep understanding of RL internals.
@@ -153,13 +164,45 @@ Edge constraints are not merely an implementation detail; they influence which m
 
 \section{Foundations: PdM as an MDP/POMDP and RL algorithms}
 \label{sec:foundations}
-\subsection{PdM as a decision process}
-We model the milling-tool replacement task as an episodic Markov decision process (MDP) $\mathcal{M}=(\mathcal{S},\mathcal{A},P,r,\gamma)$ \parencite{SuttonBarto2018}. The action space is binary:
-\begin{equation}
-	a_t \in \mathcal{A}=\{0,1\}, \quad a_t=0\,\text{replace}, \; a_t=1\,\text{continue}.
-\end{equation}
+\subsection{PdM as a decision process (MDP)}
+\label{sec:mdp}
+We model the milling-tool replacement task as an episodic Markov decision process (MDP)
+$\mathcal{M}=\langle \mathcal{S},\mathcal{A},P,r,\gamma\rangle$ \parencite{SuttonBarto2018}.
 
-\subsection{Partial observability in milling PdM}
+\begin{itemize}
+\item $\mathcal{S}$ is the (latent) state space capturing tool condition, operating parameters, and environment. We adopt the standard Markov assumption that the current state summarizes the history relevant for predicting future degradation.
+\item $\mathcal{A}=\{0,1\}$ is a binary action space with $a=0$ meaning \emph{replace} and $a=1$ meaning \emph{continue}. This formulation is closely related to an optimal stopping decision: choose the replacement time that balances utilization against violation risk.
+\item $P(s'\mid s,a)$ is the transition kernel.
+\item $r(s,a)$ is a shaped reward encoding asymmetric PdM costs (\cref{sec:reward}).
+\item $\gamma$ is the discount factor.
+\end{itemize}
+
+The agent observes state $s_t$ (or an observation $o_t$ in the POMDP case), samples an action $a_t\sim\pi_\theta(\cdot\mid s_t)$, and receives reward $r_t=r(s_t,a_t)$.
+
+\subsection{Finite vs. infinite horizon and the discount factor $\gamma$}
+\label{sec:gamma}
+The admissible range of $\gamma$ depends on whether the process is finite or infinite horizon.
+
+\paragraph{Infinite horizon ($\gamma\in[0,1)$).}
+In non-terminating environments, $\gamma$ must be strictly less than $1$ to ensure the discounted return converges and the value function is well-defined.
+
+\paragraph{Finite horizon ($\gamma\in[0,1]$).}
+Predictive maintenance is naturally episodic: a rollout terminates when the tool is replaced or when a terminal failure/threshold event occurs. If the episode length is bounded by $T<\infty$, the cumulative return $\sum_{t=0}^{T}\gamma^t r_t$ is finite even when $\gamma=1$. In our AutoRL grid we therefore include $\gamma\in\{0.95,0.99,1.0\}$ as a scientifically valid choice in the finite-horizon formulation.
+
+\subsection{Objective function, returns, and baselines}
+\label{sec:objective}
+The RL objective is to maximize expected discounted return under the policy $\pi_\theta$:
+\begin{equation}
+J(\theta)=\mathbb{E}_{\tau\sim\pi_\theta}\left[\sum_{t=0}^{T}\gamma^t r_t\right],
+\end{equation}
+where $\tau=(s_0,a_0,r_0,\ldots,s_T)$ is a trajectory.
+Define the return from time $t$ as
+\begin{equation}
+G_t = \sum_{k=t}^{T} \gamma^{k-t} r_k.
+\end{equation}
+Policy-gradient methods often subtract a baseline $b(s_t)$ (e.g., a value function) from $G_t$ to reduce variance without changing the expected gradient.
+
+\subsection{Partial observability in milling PdM (POMDP)}
 \label{sec:pomdp}
 In realistic PdM, the true health state (tool wear) is not directly observable at runtime. The environment therefore corresponds to a partially observable MDP (POMDP), where the agent receives an observation vector $o_t$ derived only from sensor channels and must infer the hidden wear variable $w_t$:
 \begin{equation}
@@ -169,37 +212,45 @@ This design choice is implemented explicitly in the environment (\cref{sec:env})
 
 \subsection{RL algorithms compared}
 \label{sec:algos}
-We compare four algorithms: DQN (value-based), A2C (actor--critic), PPO (policy optimization), and REINFORCE (Monte-Carlo policy gradient). We briefly summarize their update principles and discuss suitability for PdM.
+We compare four algorithms: DQN (value-based), A2C (actor--critic), PPO (policy optimization), and REINFORCE (Monte-Carlo policy gradient). We summarize their update principles and provide the key objectives used in practice.
 
-\paragraph{DQN.}
-DQN minimizes a temporal-difference (TD) error to fit $Q_\theta(s,a)$:
+\paragraph{REINFORCE (Monte-Carlo policy gradient).}
+REINFORCE directly estimates the policy gradient using Monte-Carlo returns \parencite{Williams1992REINFORCE}:
 \begin{equation}
-	\mathcal{L}(\theta)=\mathbb{E}\left[\big(r_t + \gamma\max_{a'}Q_{\bar\theta}(s_{t+1},a') - Q_\theta(s_t,a_t)\big)^2\right].
+\nabla_\theta J(\theta) = \mathbb{E}\left[\sum_{t=0}^{T} \nabla_\theta \log \pi_\theta(a_t\mid s_t)\,\big(G_t-b(s_t)\big)\right].
 \end{equation}
-While effective for discrete control \parencite{Mnih2015DQN}, DQN can be sensitive to reward scaling and partial observability without explicit memory.
+Its simplicity makes it attractive in AutoRL sweeps; the primary challenge is variance, which motivates baselines and/or representation learning.
 
-\paragraph{A2C.}
-Actor--critic methods reduce variance via a value baseline. With advantage $\hat{A}_t$:
+\paragraph{A2C (advantage actor--critic).}
+Actor--critic methods use a learned value baseline $V_\phi(s_t)$ to reduce variance. With advantage estimate $\hat{A}_t=G_t-V_\phi(s_t)$, the policy gradient takes the form
 \begin{equation}
-	\nabla_\theta J(\theta) \approx \mathbb{E}[\nabla_\theta \log \pi_\theta(a_t\mid s_t)\,\hat{A}_t].
+\nabla_\theta J(\theta) \approx \mathbb{E}\big[\nabla_\theta\log\pi_\theta(a_t\mid s_t)\,\hat{A}_t\big].
 \end{equation}
-A2C can be more stable than pure policy gradients but typically requires training both actor and critic, and is commonly described as a synchronous variant of the A3C family \parencite{Mnih2016A3C}.
+The critic is trained by minimizing a regression loss such as
+\begin{equation}
+\mathcal{L}_V(\phi)=\mathbb{E}\big[(G_t - V_\phi(s_t))^2\big].
+\end{equation}
 
-\paragraph{PPO.}
-PPO stabilizes policy updates through a clipped surrogate objective:
-\begin{align}
-	r_t(\theta) &= \frac{\pi_\theta(a_t\mid s_t)}{\pi_{\theta_{\text{old}}}(a_t\mid s_t)},\\
-	\mathcal{L}^{\text{clip}}(\theta) &= \mathbb{E}\left[\min\big(r_t(\theta)\hat{A}_t,\,\mathrm{clip}(r_t(\theta),1-\epsilon,1+\epsilon)\hat{A}_t\big)\right].
-\end{align}
-PPO is often strong empirically \parencite{Schulman2017PPO}, but can be compute-heavy because it typically runs multiple epochs per batch.
+\paragraph{PPO (clipped policy optimization).}
+PPO constrains policy updates using a clipped surrogate objective \parencite{Schulman2017PPO}. Define the probability ratio
+\begin{equation}
+ r_t(\theta)=\frac{\pi_\theta(a_t\mid s_t)}{\pi_{\theta_{\mathrm{old}}}(a_t\mid s_t)}.
+\end{equation}
+With advantage $\hat{A}_t$, the clipped objective is
+\begin{equation}
+\mathcal{L}^{\mathrm{CLIP}}(\theta)=\mathbb{E}\left[\min\Big(r_t(\theta)\hat{A}_t,\;\mathrm{clip}(r_t(\theta),1-\epsilon,1+\epsilon)\hat{A}_t\Big)\right].
+\end{equation}
+In typical implementations, the optimized objective also includes a value-function penalty and an entropy bonus:
+\begin{equation}
+\mathcal{J}(\theta,\phi)=\mathcal{L}^{\mathrm{CLIP}}(\theta) - c_1\,\mathcal{L}_V(\phi) + c_2\,H(\pi_\theta).
+\end{equation}
 
-\paragraph{REINFORCE.}
-REINFORCE estimates policy gradients from Monte-Carlo returns $G_t$:
-\begin{align}
-	G_t &= \sum_{k=0}^{T-t-1} \gamma^k r_{t+k},\\
-	\nabla_\theta J(\theta) &\approx \mathbb{E}\left[\sum_{t=0}^{T-1} \nabla_\theta \log \pi_\theta(a_t\mid s_t)(G_t - b(s_t))\right],
-\end{align}
-where $b(s_t)$ is an optional baseline to reduce variance \parencite{Williams1992REINFORCE}. In our implementation, REINFORCE follows the Stable-Baselines3 API and can use a value-function baseline (\cref{sec:reinforce_impl}) \parencite{StableBaselines3}.
+\paragraph{DQN (deep Q-learning).}
+DQN learns an action-value function $Q_\theta(s,a)$ and minimizes a temporal-difference error with a target network \parencite{Mnih2015DQN}:
+\begin{equation}
+\mathcal{L}(\theta)=\mathbb{E}\left[\left(r_t + \gamma\max_{a'}Q_{\bar\theta}(s_{t+1},a') - Q_\theta(s_t,a_t)\right)^2\right].
+\end{equation}
+Experience replay and target-network updates stabilize learning, but partial observability can degrade performance without explicit memory.
 
 \paragraph{Why REINFORCE can be edge-suited.}
 In an AutoRL setting, algorithmic simplicity can translate to lower total compute when sweeping many configurations. This does not guarantee superior reward, but it shifts the burden of proof: if a lightweight method is statistically competitive on PdM metrics, it may be preferable for edge-first deployments \parencite{Schwartz2020GreenAI, Njor2024TinyML}.
@@ -275,19 +326,29 @@ This design reflects a practical PdM asymmetry: a late replacement causing quali
 \label{sec:attention}
 Because wear is hidden from observation, the core challenge is representation learning from sensor vectors. We implement attention mechanisms as feature extractors $\phi_\theta(\mathbf{x}_t)$ that map a raw sensor vector into a compact embedding used by the RL policy.
 
+\paragraph{General attention concept.}
+Given values $V=\{\mathbf{v}_1,\ldots,\mathbf{v}_n\}$ and a query $\mathbf{q}$, attention forms a convex combination
+\begin{equation}
+\mathrm{Attention}(\mathbf{q},V)=\sum_{i=1}^{n}\alpha_i\,\mathbf{v}_i,\qquad \sum_i\alpha_i=1,\;\alpha_i\ge 0,
+\end{equation}
+with weights computed by a softmax over a compatibility score $s(\mathbf{q},\mathbf{v}_i)$:
+\begin{equation}
+\alpha_i = \frac{\exp(s(\mathbf{q},\mathbf{v}_i))}{\sum_{j=1}^n\exp(s(\mathbf{q},\mathbf{v}_j))}.
+\end{equation}
+
 \paragraph{Note on terminology.}
 We use ``attention'' as a unifying design label for a family of feature extractors that implement (i) learned reweighting/gating and (ii) structured fusion of sensor features and (optionally) time context. Some extractors are ``attention-inspired'' rather than textbook token-wise attention over sequences; where the implementation deviates from standard formulations, we state this explicitly.
 
 \subsection{Nadaraya--Watson attention (NW)}
-NW attention can be interpreted as kernel-regression-based soft retrieval from learnable prototypes. With query $\mathbf{q}$ and keys $\{\mathbf{k}_i\}$:
+NW attention can be interpreted as kernel-regression-based soft retrieval from learnable prototypes. A standard Gaussian-kernel form is
 \begin{equation}
-	\alpha_i = \mathrm{softmax}\big(-\beta \lVert \mathbf{q}-\mathbf{k}_i\rVert^2\big),\qquad
-	\mathbf{z}=\sum_i \alpha_i \mathbf{v}_i.
+\alpha_i = \frac{\exp\left(-\tfrac{\lVert \mathbf{k}_i-\mathbf{q}\rVert^2}{2\sigma^2}\right)}{\sum_j \exp\left(-\tfrac{\lVert \mathbf{k}_j-\mathbf{q}\rVert^2}{2\sigma^2}\right)},
+\qquad \mathbf{z}=\sum_i\alpha_i\,\mathbf{v}_i.
 \end{equation}
 This mechanism is computationally light and aligns with prior PdM attention work motivated by edge constraints \parencite{Siraskar2024NWAttention}.
 
 \paragraph{Theory-to-code mapping.}
-In \texttt{code/rl\_pdm.py}, NW attention is implemented as a learned prototype memory with a strictly-positive bandwidth parameter $\beta=\exp(\log\beta)$:
+In \texttt{code/rl\_pdm.py}, NW attention is implemented as a learned prototype memory with a strictly-positive bandwidth parameter $\beta=\exp(\log\beta)$, which corresponds to $\beta\approx 1/(2\sigma^2)$:
 \begin{lstlisting}[language=Python]
 # NadarayaWatsonExtractor.forward (code/rl_pdm.py)
 query = self.query_net(observations)          # q
@@ -319,7 +380,12 @@ return output
 \end{lstlisting}
 
 \subsection{Multi-head attention (MH)}
-Multi-head attention uses multiple attention heads to represent different subspaces of sensor relationships \parencite{Vaswani2017Attention}. In our implementation, attention is computed across heads for each observation vector, resulting in a gated mixture of subspace features. Empirically, MH emerges as the strongest and most consistent attention mechanism across datasets (\cref{sec:results}).
+Multi-head attention uses multiple attention heads to represent different subspaces of sensor relationships \parencite{Vaswani2017Attention}. In standard form,
+\begin{equation}
+\mathrm{MultiHead}(Q,K,V)=\mathrm{Concat}(\mathrm{head}_1,\ldots,\mathrm{head}_H)W^O,
+\qquad \mathrm{head}_h=\mathrm{Attention}(QW_h^Q,KW_h^K,VW_h^V).
+\end{equation}
+In our implementation, attention is computed across heads for each observation vector, resulting in a gated mixture of subspace features. Empirically, MH emerges as the strongest and most consistent attention mechanism across datasets (\cref{sec:results}).
 
 \paragraph{Theory-to-code mapping.}
 Because the input is a single feature vector (not a token sequence), the code computes a per-head compatibility score $s_h \propto \langle \mathbf{Q}_h,\mathbf{K}_h\rangle$ and normalizes across heads ($h=1,\dots,H$):
@@ -337,7 +403,11 @@ return self.output_proj(concat)
 \end{lstlisting}
 
 \subsection{Self-attention (SA)}
-Self-attention projects the observation into a feature space and uses a compact Transformer-style block with residual connections and layer normalization. In this implementation, the softmax normalization is across the batch dimension; this can act as a stabilization/gating mechanism, though it differs from token-wise self-attention.
+Self-attention projects the observation into a feature space and uses a compact Transformer-style block with residual connections and layer normalization. In standard token-wise form,
+\begin{equation}
+\mathrm{SelfAttn}(X)=\mathrm{softmax}\left(\frac{XW_Q(XW_K)^\top}{\sqrt{d}}\right)XW_V.
+\end{equation}
+In this codebase, the softmax normalization is across the \emph{batch} dimension; this can act as a stabilization/gating mechanism, though it differs from token-wise self-attention.
 
 \paragraph{Theory-to-code mapping and deviation from standard self-attention.}
 Standard self-attention computes pairwise weights across tokens/features. Here, the implementation computes a scalar score per sample and normalizes across the batch. Concretely, for each batch element $i$ it forms $s_i=(\mathbf{q}_i\odot\mathbf{k}_i)^\top\mathbf{1}/\sqrt{d}$, then $\alpha=\mathrm{softmax}(\mathbf{s})$ across $i$ (batch axis), and outputs $\alpha_i\mathbf{v}_i$ with residual + FFN:
@@ -417,6 +487,14 @@ Lower $|\lambda|$ is better; $\lambda=0$ corresponds to replacing exactly at the
 
 \subsection{Multi-round evaluation, confidence intervals, and hypothesis tests}
 Each trained model is evaluated for 20 rounds on unseen data. We report mean values and 95\% confidence intervals where raw results are available (IEEE). Hypothesis testing uses one-tailed Welch $t$-tests (provided as CSV artefacts) at $\alpha=0.05$.
+
+\paragraph{Aggregation and 95\% confidence intervals.}
+Let $S_1,\ldots,S_n$ denote the evaluation scores obtained across rounds and test files in a given panel. We report the sample mean and standard deviation
+\begin{align}
+\mu &= \frac{1}{n}\sum_{i=1}^{n} S_i,\\
+\sigma &= \sqrt{\frac{1}{n-1}\sum_{i=1}^{n}(S_i-\mu)^2},
+\end{align}
+and the standard error of the mean $\mathrm{SEM}=\sigma/\sqrt{n}$. A normal-approximation 95\% CI is then $[\mu-1.96\,\mathrm{SEM},\;\mu+1.96\,\mathrm{SEM}]$.
 
 \paragraph{What varies across rounds (policy stochasticity + seeding).}
 Multi-round evaluation is designed to quantify variance from \emph{stochastic decision policies} rather than resampling the dataset (the environment replays a fixed run). Concretely, \texttt{code/batch\_train.py} assigns a distinct seed per (round, retry), and calls \texttt{evaluate\_trained\_model(..., deterministic=False)} so actions are sampled stochastically from the policy. To keep temporal feature extractors consistent with episode progression, \texttt{evaluate\_trained\_model} executes predictions step-by-step (not as a single batch), and attempts to reset any internal timestep counters at the start of evaluation.
@@ -587,6 +665,7 @@ The PdM task studied here has a small action space and terminates on replacement
 \subsection{Implications for industrial practitioners}
 AutoRL reduces reliance on RL expertise by automating algorithm/attention sweeps and exposing standardized result artefacts (dashboards, heatmaps, and hypothesis-test summaries). This directly supports RO3: practitioners can select a robust configuration empirically, without deeply understanding policy-gradient variance, PPO clipping, or DQN stability tricks.
 
+% From UM_bacground:
 \subsection{Edge compute and sustainability framing}
 This paper does not directly measure energy consumption. However, the combination of AutoRL-style sweeps and edge deployment makes compute-efficiency a meaningful engineering constraint. In this context, if REINFORCE achieves equal or better PdM outcomes than heavier baselines, it supports a defensible ``Green AI'' argument: prefer the simplest method that meets the operational objective \parencite{Schwartz2020GreenAI, Strubell2019Energy}.
 

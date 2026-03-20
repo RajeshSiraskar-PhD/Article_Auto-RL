@@ -1169,24 +1169,14 @@ def load_model_metadata(model_path):
         return {}
 
 ## $$$$ Evaluate Trained Model
-def evaluate_trained_model(model_path, data_file, wear_threshold=None, seed=42, deterministic: bool = True):
+def evaluate_trained_model(model_path, data_file, wear_threshold=None, seed=42):
     """
-        Evaluates a trained model on a specific data file with IAR and Model Override logic.
-
-        Notes:
-        - When deterministic=False, actions are sampled stochastically from the policy.
-            This enables multi-round evaluation to capture policy stochasticity.
-        - Evaluation runs step-by-step (not in one large batch) to ensure feature extractors
-            with internal timestep state (e.g., Temporal/Hybrid) evolve consistently.
+    Evaluates a trained model on a specific data file with IAR and Model Override logic.
     """
     # Set seed for reproducibility of random overrides
     import random
     random.seed(seed)
     np.random.seed(seed)
-    try:
-        th.manual_seed(seed)
-    except Exception:
-        pass
     
     # 1. Configuration
     # Use provided threshold or default to global
@@ -1238,21 +1228,11 @@ def evaluate_trained_model(model_path, data_file, wear_threshold=None, seed=42, 
     # We must use the same environment setup as training
     env = MT_Env(data_file, wear_threshold=eval_wear_threshold) 
     
-    # Reset any feature extractor internal timestep state (Temporal/Hybrid)
-    try:
-        fe = getattr(model, "policy", None)
-        fe = getattr(fe, "features_extractor", None)
-        if fe is not None and hasattr(fe, "current_timestep"):
-            fe.current_timestep.zero_()
-    except Exception:
-        pass
-
-    # 3. Run Evaluation (step-by-step predictions)
+    # 3. Run Evaluation (Pre-calculate all actions)
     # We simulate the entire dataset state-by-state to get what the model WOULD do
     full_data_len = len(env.data)
     all_obs = []
     all_wear = []
-    all_actions = []
     
     for i in range(full_data_len):
         # Manually set env step to get observation
@@ -1260,14 +1240,14 @@ def evaluate_trained_model(model_path, data_file, wear_threshold=None, seed=42, 
         obs = env._get_obs()
         all_obs.append(obs)
         all_wear.append(env.data.iloc[i]['tool_wear'])
-        # Predict action for this observation
-        action, _ = model.predict(obs, deterministic=deterministic)
-        # SB3 returns shape (n_envs,) or scalar-like; normalize to int
-        if isinstance(action, (list, tuple, np.ndarray)):
-            action_i = int(np.array(action).reshape(-1)[0])
-        else:
-            action_i = int(action)
-        all_actions.append(action_i)
+        
+    # Helper to predict in batch or valid loop
+    # Convert list of obs to numpy array
+    all_obs_np = np.array(all_obs)
+    
+    # Get all actions
+    all_actions, _ = model.predict(all_obs_np, deterministic=True)
+    # all_actions is array of 0s and 1s
     
     # 4. Apply Logic
     final_actions = np.ones(full_data_len, dtype=int) # Default CONTINUE (1)
@@ -1299,59 +1279,6 @@ def evaluate_trained_model(model_path, data_file, wear_threshold=None, seed=42, 
     model_override = False
     override_indices = []
     
-    ## *****************************************************************************
-    # if not replacements_in_iar:
-    #     # No valid replacement in IAR -> Force Override or check if late replacement is good enough? 
-    #     model_override = True
-        
-    #     # Pick random start point within IAR
-    #     iar_indices = [i for i, w in enumerate(all_wear) if IAR_lower <= w <= IAR_upper]
-        
-    #     if not iar_indices:
-    #          # Fallback if no points in IAR implies wear jumped or data ended
-    #          potential = [i for i, w in enumerate(all_wear) if w >= IAR_lower]
-    #          start_idx = potential[0] if potential else full_data_len - 1
-    #     else:
-    #         import random
-    #         start_idx = random.choice(iar_indices)
-            
-    #     # Check for natural replacements AFTER IAR (Case 2)
-    #     replacements_post_iar = [i for i in natural_replacements_indices if all_wear[i] > IAR_upper]
-        
-    #     if not replacements_post_iar:
-    #         # CASE 1: No natural replacements at all (after IAR)
-    #         # Override at start_idx
-    #         final_actions[start_idx] = 0
-    #         override_indices.append(start_idx)
-            
-    #         # Sprinkle 70% overrides until end
-    #         remaining_indices = list(range(start_idx + 1, full_data_len))
-    #         if remaining_indices:
-    #             k = int(len(remaining_indices) * 0.7)
-    #             sampled_indices = random.sample(remaining_indices, k)
-    #             for idx in sampled_indices:
-    #                 final_actions[idx] = 0
-    #                 override_indices.append(idx)
-                    
-    #     else:
-    #         # CASE 2: Natural replacements exist later
-    #         first_natural_idx = replacements_post_iar[0]
-            
-    #         # Override from start_idx up to first_natural_idx (exclusive of natural val) - stop overrides at this point
-    #         # Ensure start_idx < first_natural_idx
-    #         if start_idx < first_natural_idx:
-    #             for idx in range(start_idx, first_natural_idx):
-    #                 final_actions[idx] = 0
-    #                 override_indices.append(idx)
-                    
-    #         # Natural replacement remains at first_natural_idx in final_actions (already set in loop above)
-            
-    # else:
-    #     # Valid replacement exists in IAR. No override.
-    #     model_override = False
-    
-    ## *****************************************************************************
-
 
     # 5. Metrics & Results
     # T_wt: First timestep where wear > threshold

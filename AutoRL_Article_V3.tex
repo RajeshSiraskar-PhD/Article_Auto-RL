@@ -1,8 +1,8 @@
-% --------------------------------------------------------------------------------
-% AutoRL_Combined_Final.tex
-% Final combined manuscript (Article-2 base + Article-1 technical enrichments)
-% Date: 19-Mar-2026
-% --------------------------------------------------------------------------------
+% ------------------------------------------------------------------------------------------------
+% V3 - Baselined Final combined manuscript (Article-2 base + Article-1 technical enrichments)
+% Date: 20-Mar-2026 | Code check and implementation details cross checked with Code
+% V.3.2 : Add psuedo code.
+% ------------------------------------------------------------------------------------------------
 
 \documentclass[11pt]{article}
 
@@ -19,8 +19,18 @@
 \usepackage{setspace}
 \usepackage{csquotes}
 \usepackage{listings}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
 \usepackage{hyperref}
 \usepackage[nameinlink,noabbrev]{cleveref}
+
+\crefname{algorithm}{Algorithm}{Algorithms}
+\crefname{lstlisting}{Listing}{Listings}
+
+% Avoid duplicate hyperref anchors for algorithmicx line numbers
+\makeatletter
+\renewcommand{\theHALG@line}{\thealgorithm.\arabic{ALG@line}}
+\makeatother
 
 \usepackage[style=apa,backend=biber,sorting=nyt]{biblatex}
 \DeclareLanguageMapping{american}{american-apa}
@@ -61,7 +71,7 @@
 \title{AutoRL for Predictive Maintenance on the Edge: \texorpdfstring{\newline}{ }A Comparative Study of REINFORCE with Attention Mechanisms for Milling Tool Replacement}
 
 \author{Rajesh Siraskar\\
-\small V.2.0\\
+\small V.3.2 - psuedocode\\
 \small (SCRI SIT Pune)\\
 \small \texttt{(email)}
 }
@@ -308,13 +318,22 @@ AutoRL sweeps can be long-running and failure-prone (e.g., interrupted runs, I/O
 \section{Environment design: a Gymnasium-compatible milling PdM POMDP}
 \label{sec:env}
 \subsection{Design goals and schema abstraction}
-The environment class \texttt{MT\_Env} (\texttt{code/rl\_pdm.py}) implements the Gymnasium interface \parencite{Gymnasium2023}. A central design goal is schema generality: the same environment should work across different milling-machine sensor schemas. This is implemented by (i) detecting the schema from column names and (ii) selecting the relevant sensor feature set accordingly.
+The environment class \texttt{MT\_Env} (\texttt{code/rl\_pdm.py}) implements the Gymnasium interface \parencite{Gymnasium2023} (the maintained successor of OpenAI Gym). A central design goal is schema generality: the same environment logic (episode structure, actions, and reward shaping) should work across different milling-machine sensor schemas.
+
+In the implementation, schema abstraction is achieved by keeping the MDP ``skeleton'' fixed while allowing the observation \emph{feature set} to vary:
+\begin{itemize}
+	\item \textbf{Fixed across schemas:} the observation is always a flat real-valued sensor vector $\mathbf{x}_t\in\mathbb{R}^d$, the action space is binary (replace vs. continue), and the reward/termination logic is driven by an internal wear threshold.
+	\item \textbf{Schema-dependent:} the specific sensor columns used to form $\mathbf{x}_t$ (and therefore $d$) are selected based on column names.
+\end{itemize}
 
 \paragraph{Schema detection.}
-The environment detects the schema using available sensor columns (e.g., force and acoustic emission channels for IEEE; vibration, sound, and load-cell channels for SIT). This supports H2 by enabling the same logic to run across the two datasets without changing the reward or transition logic.
+The environment detects the schema using available sensor columns (e.g., force and acoustic emission channels for IEEE; vibration, sound, and load-cell channels for SIT). If no known schema signature is found, the implementation falls back to using \emph{all} non-excluded columns as sensor features (excluding \texttt{Time}/\texttt{time}, \texttt{tool\_wear}, and \texttt{ACTION\_CODE}). This supports H2 by enabling the same environment code path to run across SIT and IEEE without changing the reward or transition logic.
+
+\paragraph{Practical requirement for new datasets.}
+To reuse \texttt{MT\_Env} on a new milling-machine dataset without code changes, the CSV must include a \texttt{tool\_wear} column (used internally for termination and reward) plus one or more numeric sensor columns (used as observations). New schemas can be made ``first-class'' (with an explicit feature list) by extending the column-name detection and feature selection mapping.
 
 \subsection{Observation and action spaces}
-Only sensor readings are included in the observation vector; \emph{tool wear} is excluded (\cref{sec:pomdp}). The action space is discrete with two actions: replace or continue.
+Only sensor readings are included in the observation vector; \emph{tool wear} is excluded (\cref{sec:pomdp}) but retained internally for reward and termination. The action space is discrete with two actions (as implemented): $a=0$ means \emph{replace} (terminates the episode) and $a=1$ means \emph{continue}.
 
 \subsection{Reward shaping for asymmetric PdM risk}
 \label{sec:reward}
@@ -325,6 +344,9 @@ This design reflects a practical PdM asymmetry: a late replacement causing quali
 \section{Attention mechanisms as lightweight feature extractors}
 \label{sec:attention}
 Because wear is hidden from observation, the core challenge is representation learning from sensor vectors. We implement attention mechanisms as feature extractors $\phi_\theta(\mathbf{x}_t)$ that map a raw sensor vector into a compact embedding used by the RL policy.
+
+\paragraph{How attention is enabled (implementation).}
+Attention is not implemented inside the environment; \texttt{MT\_Env} always returns the same type of observation vector. Instead, attention is enabled by injecting a custom Stable-Baselines3 feature extractor (a subclass of \texttt{BaseFeaturesExtractor}) via \texttt{policy\_kwargs} when constructing the agent in \texttt{train\_single\_model}. This keeps the environment unchanged while allowing PPO/A2C/DQN/REINFORCE to share the same attention-enhanced representation learning stack.
 
 \paragraph{General attention concept.}
 Given values $V=\{\mathbf{v}_1,\ldots,\mathbf{v}_n\}$ and a query $\mathbf{q}$, attention forms a convex combination
@@ -347,37 +369,46 @@ NW attention can be interpreted as kernel-regression-based soft retrieval from l
 \end{equation}
 This mechanism is computationally light and aligns with prior PdM attention work motivated by edge constraints \parencite{Siraskar2024NWAttention}.
 
-\paragraph{Theory-to-code mapping.}
-In \texttt{code/rl\_pdm.py}, NW attention is implemented as a learned prototype memory with a strictly-positive bandwidth parameter $\beta=\exp(\log\beta)$, which corresponds to $\beta\approx 1/(2\sigma^2)$:
-\begin{lstlisting}[language=Python]
-# NadarayaWatsonExtractor.forward (code/rl_pdm.py)
-query = self.query_net(observations)          # q
-dist  = (query.unsqueeze(1) - self.keys.unsqueeze(0)).pow(2).sum(dim=2)
-beta  = th.exp(self.log_beta)                 # beta > 0
-alpha = th.softmax(-beta * dist, dim=1)       # softmax over prototypes
-context = (alpha.unsqueeze(2) * self.values.unsqueeze(0)).sum(dim=1)
-return context
-\end{lstlisting}
+\paragraph{Pseudocode (forward pass).}
+In \texttt{code/rl\_pdm.py}, NW attention is implemented as a learned prototype memory with a strictly-positive bandwidth parameter $\beta=\exp(\log\beta)$ (corresponding to $\beta\approx 1/(2\sigma^2)$). \Cref{alg:nw_forward} summarizes the forward pass; the exact snippet is in \cref{lst:nw_forward}.
+
+\begin{algorithm}[t]
+\caption{NW attention feature extractor (forward pass)}
+\label{alg:nw_forward}
+\begin{algorithmic}[1]
+\Require observation vector $\mathbf{x}$; learnable prototype keys $\{\mathbf{k}_i\}$ and values $\{\mathbf{v}_i\}$; query network $f_\theta$; parameter $\log\beta$
+\Ensure context feature $\mathbf{z}$
+\State $\mathbf{q} \gets f_\theta(\mathbf{x})$ \Comment{query}
+\For{$i \gets 1$ to $N$}
+	\State $d_i \gets \lVert \mathbf{q}-\mathbf{k}_i\rVert^2$
+\EndFor
+\State $\beta \gets \exp(\log\beta)$ \Comment{enforce $\beta>0$}
+\State $\alpha \gets \mathrm{softmax}(-\beta\,\mathbf{d})$ \Comment{normalize over prototypes}
+\State $\mathbf{z} \gets \sum_{i=1}^{N} \alpha_i\,\mathbf{v}_i$
+\State \Return $\mathbf{z}$
+\end{algorithmic}
+\end{algorithm}
 
 \subsection{Temporal attention (TP)}
 Temporal attention injects an explicit stage-of-life signal using sinusoidal positional encodings and a learnable temporal embedding \parencite{Vaswani2017Attention}. It fuses (i) a soft spatial mask over sensor channels and (ii) a time-dependent encoding. This is a lightweight alternative to recurrent memory while still providing a monotonic time context.
 
-\paragraph{Theory-to-code mapping.}
-The implementation combines an MLP-based spatial attention mask with a positional encoding lookup indexed by an internal timestep counter:
-\begin{lstlisting}[language=Python]
-# TemporalAttentionExtractor.forward (code/rl_pdm.py)
-spatial_weights = self.spatial_attention(observations)
-weighted_spatial = observations * spatial_weights
+\paragraph{Pseudocode (forward pass).}
+The implementation combines an MLP-based spatial attention mask with a positional encoding lookup indexed by an internal timestep counter. \Cref{alg:tp_forward} summarizes the forward pass; the exact snippet is in \cref{lst:tp_forward}.
 
-timestep_idx = int(self.current_timestep.item()) % self.max_timesteps
-temporal_encoding = self.positional_encoding[timestep_idx]
-temporal_features = temporal_encoding + self.temporal_embedding
-
-combined = th.cat([weighted_spatial, temporal_features.expand(batch_size, -1)], dim=1)
-output = self.fusion_net(combined)
-self.current_timestep += 1
-return output
-\end{lstlisting}
+\begin{algorithm}[t]
+\caption{Temporal attention feature extractor (forward pass)}
+\label{alg:tp_forward}
+\begin{algorithmic}[1]
+\Require observation vector $\mathbf{x}$; spatial attention network $g_\theta$; positional encodings $\mathrm{PE}[\cdot]$; temporal embedding $\mathbf{e}$; timestep counter $t$; fusion network $h_\theta$
+\Ensure feature embedding $\mathbf{z}$
+\State $\mathbf{w} \gets g_\theta(\mathbf{x})$ \Comment{per-channel spatial weights}
+\State $\tilde{\mathbf{x}} \gets \mathbf{x} \odot \mathbf{w}$
+\State $\mathbf{p} \gets \mathrm{PE}[t \bmod T_{\max}] + \mathbf{e}$
+\State $\mathbf{z} \gets h_\theta(\mathrm{concat}(\tilde{\mathbf{x}},\mathbf{p}))$
+\State $t \gets t+1$
+\State \Return $\mathbf{z}$
+\end{algorithmic}
+\end{algorithm}
 
 \subsection{Multi-head attention (MH)}
 Multi-head attention uses multiple attention heads to represent different subspaces of sensor relationships \parencite{Vaswani2017Attention}. In standard form,
@@ -387,20 +418,29 @@ Multi-head attention uses multiple attention heads to represent different subspa
 \end{equation}
 In our implementation, attention is computed across heads for each observation vector, resulting in a gated mixture of subspace features. Empirically, MH emerges as the strongest and most consistent attention mechanism across datasets (\cref{sec:results}).
 
-\paragraph{Theory-to-code mapping.}
-Because the input is a single feature vector (not a token sequence), the code computes a per-head compatibility score $s_h \propto \langle \mathbf{Q}_h,\mathbf{K}_h\rangle$ and normalizes across heads ($h=1,\dots,H$):
-\begin{lstlisting}[language=Python]
-# MultiHeadAttentionExtractor.forward (code/rl_pdm.py)
-Q = self.query_proj(observations).view(batch, H, d)
-K = self.key_proj(observations).view(batch, H, d)
-V = self.value_proj(observations).view(batch, H, d)
+\paragraph{Pseudocode (forward pass).}
+Because the input is a single feature vector (not a token sequence), the implementation computes a per-head compatibility score $s_h \propto \langle \mathbf{Q}_h,\mathbf{K}_h\rangle$ and normalizes across heads ($h=1,\dots,H$). \Cref{alg:mh_forward} summarizes the forward pass; the exact snippet is in \cref{lst:mh_forward}.
 
-scores  = th.einsum('bhd,bhd->bh', Q, K) * self.scale
-alpha_h = th.softmax(scores, dim=1).unsqueeze(2)    # softmax over heads
-attended = alpha_h * V
-concat = attended.view(batch, H * d)
-return self.output_proj(concat)
-\end{lstlisting}
+\begin{algorithm}[t]
+\caption{Multi-head attention feature extractor (forward pass; head-gating over $H$ heads)}
+\label{alg:mh_forward}
+\begin{algorithmic}[1]
+\Require observation vector $\mathbf{x}$; projections $W^Q,W^K,W^V$; output projection $W^O$; number of heads $H$; per-head dimension $d$; scale factor $c$
+\Ensure feature embedding $\mathbf{z}$
+\State $Q \gets (\mathbf{x}W^Q) \rightarrow \text{reshape}(H, d)$
+\State $K \gets (\mathbf{x}W^K) \rightarrow \text{reshape}(H, d)$
+\State $V \gets (\mathbf{x}W^V) \rightarrow \text{reshape}(H, d)$
+\For{$h \gets 1$ to $H$}
+	\State $s_h \gets c\,\langle Q_h, K_h\rangle$
+\EndFor
+\State $\alpha \gets \mathrm{softmax}(\mathbf{s})$ \Comment{normalize over heads}
+\For{$h \gets 1$ to $H$}
+	\State $\tilde{V}_h \gets \alpha_h\,V_h$
+\EndFor
+\State $\mathbf{z} \gets (\mathrm{concat}(\tilde{V}_1,\ldots,\tilde{V}_H))W^O$
+\State \Return $\mathbf{z}$
+\end{algorithmic}
+\end{algorithm}
 
 \subsection{Self-attention (SA)}
 Self-attention projects the observation into a feature space and uses a compact Transformer-style block with residual connections and layer normalization. In standard token-wise form,
@@ -409,34 +449,44 @@ Self-attention projects the observation into a feature space and uses a compact 
 \end{equation}
 In this codebase, the softmax normalization is across the \emph{batch} dimension; this can act as a stabilization/gating mechanism, though it differs from token-wise self-attention.
 
-\paragraph{Theory-to-code mapping and deviation from standard self-attention.}
-Standard self-attention computes pairwise weights across tokens/features. Here, the implementation computes a scalar score per sample and normalizes across the batch. Concretely, for each batch element $i$ it forms $s_i=(\mathbf{q}_i\odot\mathbf{k}_i)^\top\mathbf{1}/\sqrt{d}$, then $\alpha=\mathrm{softmax}(\mathbf{s})$ across $i$ (batch axis), and outputs $\alpha_i\mathbf{v}_i$ with residual + FFN:
-\begin{lstlisting}[language=Python]
-# SelfAttentionExtractor.forward (code/rl_pdm.py)
-x = self.input_proj(observations)
-Q = self.query(x); K = self.key(x); V = self.value(x)
+\paragraph{Pseudocode (forward pass) and deviation from standard self-attention.}
+Standard self-attention computes pairwise weights across tokens/features. Here, the implementation computes a scalar score per sample and normalizes across the batch. \Cref{alg:sa_forward} summarizes this forward pass; the exact snippet is in \cref{lst:sa_forward}.
 
-scores = (Q * K).sum(dim=1, keepdim=True) * self.scale
-alpha  = th.softmax(scores, dim=0)          # normalize across batch
-attn_output = alpha * V
-
-x = self.norm1(x + attn_output)
-x = self.norm2(x + self.ffn(x))
-return x
-\end{lstlisting}
+\begin{algorithm}[t]
+\caption{Self-attention feature extractor (forward pass; batch-normalized gating)}
+\label{alg:sa_forward}
+\begin{algorithmic}[1]
+\Require mini-batch $\{\mathbf{x}_i\}_{i=1}^{B}$; projections $W^{\mathrm{in}},W^Q,W^K,W^V$; scale factor $c$; FFN; layer norms $\mathrm{LN}_1,\mathrm{LN}_2$
+\Ensure output features $\{\mathbf{y}_i\}_{i=1}^{B}$
+\For{$i \gets 1$ to $B$}
+	\State $\mathbf{h}_i \gets \mathbf{x}_i W^{\mathrm{in}}$
+	\State $\mathbf{q}_i \gets \mathbf{h}_i W^Q$; $\mathbf{k}_i \gets \mathbf{h}_i W^K$; $\mathbf{v}_i \gets \mathbf{h}_i W^V$
+	\State $s_i \gets c\,\langle \mathbf{q}_i,\mathbf{k}_i\rangle$ \Comment{scalar compatibility score}
+\EndFor
+\State $\alpha \gets \mathrm{softmax}(\mathbf{s})$ \Comment{normalize across batch index $i$}
+\For{$i \gets 1$ to $B$}
+	\State $\tilde{\mathbf{v}}_i \gets \alpha_i\,\mathbf{v}_i$
+	\State $\mathbf{u}_i \gets \mathrm{LN}_1(\mathbf{h}_i + \tilde{\mathbf{v}}_i)$
+	\State $\mathbf{y}_i \gets \mathrm{LN}_2(\mathbf{u}_i + \mathrm{FFN}(\mathbf{u}_i))$
+\EndFor
+\State \Return $\{\mathbf{y}_i\}_{i=1}^{B}$
+\end{algorithmic}
+\end{algorithm}
 
 \section{Implementation details and reproducibility}
 \label{sec:implementation}
 \subsection{REINFORCE implementation}
 \label{sec:reinforce_impl}
-REINFORCE is implemented as a Stable-Baselines3 compatible \texttt{OnPolicyAlgorithm} (\texttt{code/rl\_pdm.py}). The training loop uses Monte-Carlo returns from the rollout buffer. With an optional value-function baseline, the advantage is $\hat{A}=G-V(s)$, and the policy gradient loss is
+REINFORCE is implemented as a Stable-Baselines3 compatible \texttt{OnPolicyAlgorithm} (\texttt{code/rl\_pdm.py}). Concretely, the custom \texttt{REINFORCE} class uses SB3's \texttt{ActorCriticPolicy} and \texttt{RolloutBuffer}, preserving the standard \texttt{model.learn()}, \texttt{model.save()}, and \texttt{model.load()} workflow used by PPO/A2C/DQN.
+
+The training loop uses Monte-Carlo returns ($\texttt{gae\_lambda}=1.0$) from the rollout buffer. With an optional value-function baseline, the advantage is $\hat{A}=G-V(s)$, and the policy gradient loss is
 \begin{equation}
 	\mathcal{L}_{\pi} = -\mathbb{E}[\log\pi(a\mid s)\,\hat{A}].
 \end{equation}
 This design preserves algorithmic simplicity while still benefiting from variance reduction.
 
 \subsection{Baselines and tooling}
-Baselines A2C, DQN, and PPO are accessed via Stable-Baselines3 wrappers and trained in the same environment under the same evaluation protocol \parencite{StableBaselines3}. Attention mechanisms are provided as custom feature extractors.
+Baselines A2C, DQN, and PPO are accessed directly from Stable-Baselines3 and trained in the same environment under the same evaluation protocol \parencite{StableBaselines3}. For all algorithms, the environment is wrapped using \texttt{DummyVecEnv} to match SB3's vectorized-environment interface, and attention (when enabled) is provided via the same feature-extractor injection mechanism.
 
 \section{Experimental design}
 \label{sec:experiment}
@@ -469,14 +519,22 @@ S_{\text{viol}} &= \frac{1}{1+v},\\
 Here $c_{\lambda}$ is the normalization constant used by \texttt{calculate\_eval\_score()}, implemented as $c_{\lambda}=\texttt{WEAR\_THRESHOLD}\,(1-\texttt{IAR\_RANGE})$. Note that in the current codebase $\lambda$ is measured in \emph{timesteps} (\texttt{rl\_pdm.evaluate\_trained\_model}), whereas $c_{\lambda}$ is derived from a \emph{wear} threshold; thus the ratio $|\lambda|/c_{\lambda}$ should be interpreted as an implementation-defined heuristic scaling rather than a dimensionally normalized quantity. Additionally, the $t_{\lambda}$ event is triggered using \texttt{IAR\_lower} computed in \texttt{rl\_pdm.py} as $\texttt{WEAR\_THRESHOLD}-2\,(\texttt{WEAR\_THRESHOLD}\cdot\texttt{IAR\_RANGE})$, which differs from $c_{\lambda}$.
 
 \paragraph{Implementation reference.}
-\begin{lstlisting}[language=Python]
-# calculate_eval_score (code/batch_train.py)
-tool_usage_score = min(1.0, max(0.0, tool_usage_pct))
-IAR_LOWER = rl_pdm.WEAR_THRESHOLD * (1.0 - rl_pdm.IAR_RANGE)
-lambda_score = max(0.0, 1.0 - (abs(lambda_metric) / IAR_LOWER))
-violation_score = max(0.0, 1.0 / (1.0 + violations))
-eval_score = 0.50*tool_usage_score + 0.30*lambda_score + 0.20*violation_score
-\end{lstlisting}
+\paragraph{Pseudocode (as implemented).}
+\Cref{alg:eval_score} summarizes the evaluation score computation; the exact snippet is in \cref{lst:eval_score}.
+
+\begin{algorithm}[t]
+\caption{Evaluation score computation (per evaluation run)}
+\label{alg:eval_score}
+\begin{algorithmic}[1]
+\Require tool usage fraction $u$; timing error $\lambda$; violation count $v$; constants $c_{\lambda}=\texttt{WEAR\_THRESHOLD}\,(1-\texttt{IAR\_RANGE})$
+\Ensure scalar score $S\in[0,1]$
+\State $S_{\mathrm{tool}} \gets \mathrm{clip}(u, 0, 1)$
+\State $S_{\lambda} \gets \max\left(0, 1 - \frac{|\lambda|}{c_{\lambda}}\right)$
+\State $S_{\mathrm{viol}} \gets \max\left(0, \frac{1}{1+v}\right)$
+\State $S \gets 0.50\,S_{\mathrm{tool}} + 0.30\,S_{\lambda} + 0.20\,S_{\mathrm{viol}}$
+\State \Return $S$
+\end{algorithmic}
+\end{algorithm}
 
 \paragraph{$\lambda$ metric and offline prognostic evaluation.}
 We implement a timing metric inspired by offline prognostic evaluation concepts \parencite{Saxena2008Metrics}. Define $t_{\lambda}$ as the first timestep where wear exceeds an ``in-advance replacement'' (IAR) lower bound. Let $t_{\mathrm{FR}}$ be the first replacement timestep. Then
@@ -762,6 +820,77 @@ IEEE & \texttt{force\_x}, \texttt{force\_y}, \texttt{force\_z}, \texttt{vibratio
 \end{tabular}
 \end{table}
 
+\section{Core code implementation snippets}
+\label{app:code_snippets}
+This appendix collects core code excerpts referenced in the main text. The paper body presents pseudocode for readability, while these listings provide implementation-level detail.
+
+\subsection{Nadaraya--Watson attention: forward pass}
+\begin{lstlisting}[language=Python,caption={NadarayaWatsonExtractor.forward (code/rl\_pdm.py)},label={lst:nw_forward}]
+# NadarayaWatsonExtractor.forward (code/rl_pdm.py)
+query = self.query_net(observations)          # q
+dist  = (query.unsqueeze(1) - self.keys.unsqueeze(0)).pow(2).sum(dim=2)
+beta  = th.exp(self.log_beta)                 # beta > 0
+alpha = th.softmax(-beta * dist, dim=1)       # softmax over prototypes
+context = (alpha.unsqueeze(2) * self.values.unsqueeze(0)).sum(dim=1)
+return context
+\end{lstlisting}
+
+\subsection{Temporal attention: forward pass}
+\begin{lstlisting}[language=Python,caption={TemporalAttentionExtractor.forward (code/rl\_pdm.py)},label={lst:tp_forward}]
+# TemporalAttentionExtractor.forward (code/rl_pdm.py)
+spatial_weights = self.spatial_attention(observations)
+weighted_spatial = observations * spatial_weights
+
+timestep_idx = int(self.current_timestep.item()) % self.max_timesteps
+temporal_encoding = self.positional_encoding[timestep_idx]
+temporal_features = temporal_encoding + self.temporal_embedding
+
+combined = th.cat([weighted_spatial, temporal_features.expand(batch_size, -1)], dim=1)
+output = self.fusion_net(combined)
+self.current_timestep += 1
+return output
+\end{lstlisting}
+
+\subsection{Multi-head attention: forward pass}
+\begin{lstlisting}[language=Python,caption={MultiHeadAttentionExtractor.forward (code/rl\_pdm.py)},label={lst:mh_forward}]
+# MultiHeadAttentionExtractor.forward (code/rl_pdm.py)
+Q = self.query_proj(observations).view(batch, H, d)
+K = self.key_proj(observations).view(batch, H, d)
+V = self.value_proj(observations).view(batch, H, d)
+
+scores  = th.einsum('bhd,bhd->bh', Q, K) * self.scale
+alpha_h = th.softmax(scores, dim=1).unsqueeze(2)    # softmax over heads
+attended = alpha_h * V
+concat = attended.view(batch, H * d)
+return self.output_proj(concat)
+\end{lstlisting}
+
+\subsection{Self-attention: forward pass}
+\begin{lstlisting}[language=Python,caption={SelfAttentionExtractor.forward (code/rl\_pdm.py)},label={lst:sa_forward}]
+# SelfAttentionExtractor.forward (code/rl_pdm.py)
+x = self.input_proj(observations)
+Q = self.query(x); K = self.key(x); V = self.value(x)
+
+scores = (Q * K).sum(dim=1, keepdim=True) * self.scale
+alpha  = th.softmax(scores, dim=0)          # normalize across batch
+attn_output = alpha * V
+
+x = self.norm1(x + attn_output)
+x = self.norm2(x + self.ffn(x))
+return x
+\end{lstlisting}
+
+\subsection{Evaluation score: reference implementation}
+\begin{lstlisting}[language=Python,caption={calculate\_eval\_score (code/batch\_train.py)},label={lst:eval_score}]
+# calculate_eval_score (code/batch_train.py)
+tool_usage_score = min(1.0, max(0.0, tool_usage_pct))
+IAR_LOWER = rl_pdm.WEAR_THRESHOLD * (1.0 - rl_pdm.IAR_RANGE)
+lambda_score = max(0.0, 1.0 - (abs(lambda_metric) / IAR_LOWER))
+violation_score = max(0.0, 1.0 / (1.0 + violations))
+eval_score = 0.50*tool_usage_score + 0.30*lambda_score + 0.20*violation_score
+\end{lstlisting}
+\newpage
+\clearpage
 \printbibliography[title={References}]
 
 \end{document}

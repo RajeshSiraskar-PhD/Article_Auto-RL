@@ -1,0 +1,49 @@
+Panel,Competitor,Metric,T-Statistic,P-Value (1-tail),Significance,Sig (α=0.05),REINFORCE wins?,REINFORCE Sample Size,Others Sample Size
+A. All Attn - With Self-eval,A2C,Eval Score,+205.7548,0.0000,***,YES,Yes,7840,7840
+A. All Attn - With Self-eval,A2C,Tool Usage %,+181.1193,0.0000,***,YES,Yes,7840,7840
+A. All Attn - With Self-eval,A2C,Lambda,+180.1216,0.0000,***,YES,Yes,7840,7840
+A. All Attn - With Self-eval,A2C,Violations,+96.1898,0.0000,***,YES,Yes,7840,7840
+A. All Attn - With Self-eval,DQN,Eval Score,+210.0356,0.0000,***,YES,Yes,7840,7840
+A. All Attn - With Self-eval,DQN,Tool Usage %,+185.2053,0.0000,***,YES,Yes,7840,7840
+A. All Attn - With Self-eval,DQN,Lambda,+183.8749,0.0000,***,YES,Yes,7840,7840
+A. All Attn - With Self-eval,DQN,Violations,+96.8795,0.0000,***,YES,Yes,7840,7840
+A. All Attn - With Self-eval,PPO,Eval Score,+21.1902,0.0000,***,YES,Yes,7840,7840
+A. All Attn - With Self-eval,PPO,Tool Usage %,+20.3369,0.0000,***,YES,Yes,7840,7840
+A. All Attn - With Self-eval,PPO,Lambda,+19.7927,0.0000,***,YES,Yes,7840,7840
+A. All Attn - With Self-eval,PPO,Violations,+15.8285,0.0000,***,YES,Yes,7840,7840
+B. Best Attn (Multi-Head) - With Self-eval,A2C,Eval Score,+542.9285,0.0000,***,YES,Yes,1960,7840
+B. Best Attn (Multi-Head) - With Self-eval,A2C,Tool Usage %,+389.0550,0.0000,***,YES,Yes,1960,7840
+B. Best Attn (Multi-Head) - With Self-eval,A2C,Lambda,+348.9998,0.0000,***,YES,Yes,1960,7840
+B. Best Attn (Multi-Head) - With Self-eval,A2C,Violations,+132.4831,0.0000,***,YES,Yes,1960,7840
+B. Best Attn (Multi-Head) - With Self-eval,DQN,Eval Score,+593.5263,0.0000,***,YES,Yes,1960,7840
+B. Best Attn (Multi-Head) - With Self-eval,DQN,Tool Usage %,+413.8264,0.0000,***,YES,Yes,1960,7840
+B. Best Attn (Multi-Head) - With Self-eval,DQN,Lambda,+365.6208,0.0000,***,YES,Yes,1960,7840
+B. Best Attn (Multi-Head) - With Self-eval,DQN,Violations,+133.4803,0.0000,***,YES,Yes,1960,7840
+B. Best Attn (Multi-Head) - With Self-eval,PPO,Eval Score,+51.8497,0.0000,***,YES,Yes,1960,7840
+B. Best Attn (Multi-Head) - With Self-eval,PPO,Tool Usage %,+52.3759,0.0000,***,YES,Yes,1960,7840
+B. Best Attn (Multi-Head) - With Self-eval,PPO,Lambda,+50.4340,0.0000,***,YES,Yes,1960,7840
+B. Best Attn (Multi-Head) - With Self-eval,PPO,Violations,+42.2245,0.0000,***,YES,Yes,1960,7840
+C. All Attn - Unseen Only,A2C,Eval Score,+198.0072,0.0000,***,YES,Yes,7280,7280
+C. All Attn - Unseen Only,A2C,Tool Usage %,+174.2404,0.0000,***,YES,Yes,7280,7280
+C. All Attn - Unseen Only,A2C,Lambda,+171.8831,0.0000,***,YES,Yes,7280,7280
+C. All Attn - Unseen Only,A2C,Violations,+91.3886,0.0000,***,YES,Yes,7280,7280
+C. All Attn - Unseen Only,DQN,Eval Score,+202.4485,0.0000,***,YES,Yes,7280,7280
+C. All Attn - Unseen Only,DQN,Tool Usage %,+178.4822,0.0000,***,YES,Yes,7280,7280
+C. All Attn - Unseen Only,DQN,Lambda,+175.6841,0.0000,***,YES,Yes,7280,7280
+C. All Attn - Unseen Only,DQN,Violations,+92.0858,0.0000,***,YES,Yes,7280,7280
+C. All Attn - Unseen Only,PPO,Eval Score,+20.6860,0.0000,***,YES,Yes,7280,7280
+C. All Attn - Unseen Only,PPO,Tool Usage %,+19.8479,0.0000,***,YES,Yes,7280,7280
+C. All Attn - Unseen Only,PPO,Lambda,+19.2199,0.0000,***,YES,Yes,7280,7280
+C. All Attn - Unseen Only,PPO,Violations,+15.5101,0.0000,***,YES,Yes,7280,7280
+D. Best Attn (Multi-Head) - Unseen Only,A2C,Eval Score,+512.4225,0.0000,***,YES,Yes,1820,7280
+D. Best Attn (Multi-Head) - Unseen Only,A2C,Tool Usage %,+374.6206,0.0000,***,YES,Yes,1820,7280
+D. Best Attn (Multi-Head) - Unseen Only,A2C,Lambda,+328.5776,0.0000,***,YES,Yes,1820,7280
+D. Best Attn (Multi-Head) - Unseen Only,A2C,Violations,+124.4969,0.0000,***,YES,Yes,1820,7280
+D. Best Attn (Multi-Head) - Unseen Only,DQN,Eval Score,+562.3125,0.0000,***,YES,Yes,1820,7280
+D. Best Attn (Multi-Head) - Unseen Only,DQN,Tool Usage %,+400.5005,0.0000,***,YES,Yes,1820,7280
+D. Best Attn (Multi-Head) - Unseen Only,DQN,Lambda,+344.7313,0.0000,***,YES,Yes,1820,7280
+D. Best Attn (Multi-Head) - Unseen Only,DQN,Violations,+125.4847,0.0000,***,YES,Yes,1820,7280
+D. Best Attn (Multi-Head) - Unseen Only,PPO,Eval Score,+49.9021,0.0000,***,YES,Yes,1820,7280
+D. Best Attn (Multi-Head) - Unseen Only,PPO,Tool Usage %,+50.8121,0.0000,***,YES,Yes,1820,7280
+D. Best Attn (Multi-Head) - Unseen Only,PPO,Lambda,+48.8111,0.0000,***,YES,Yes,1820,7280
+D. Best Attn (Multi-Head) - Unseen Only,PPO,Violations,+40.2434,0.0000,***,YES,Yes,1820,7280

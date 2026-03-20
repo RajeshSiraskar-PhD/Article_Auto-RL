@@ -37,7 +37,7 @@
 \IfFileExists{references.bib}{\addbibresource{references.bib}}{\addbibresource{../references.bib}}
 
 \newcommand{\autorlFigRoot}{\detokenize{figures and reports}}
-\IfFileExists{\detokenize{paper/figures and reports/SIT_Results/_Analysis_Report_SIT_Set-1.jpg}}{%
+\IfFileExists{\detokenize{paper/figures and reports/SIT_Results/_Analysis_Report_SIT.png}}{%
   \renewcommand{\autorlFigRoot}{\detokenize{paper/figures and reports}}%
 }{}
 
@@ -71,7 +71,7 @@
 \title{AutoRL for Predictive Maintenance on the Edge: \texorpdfstring{\newline}{ }A Comparative Study of REINFORCE with Attention Mechanisms for Milling Tool Replacement}
 
 \author{Rajesh Siraskar\\
-\small V.3.2 - psuedocode\\
+\small V.3.3 - New results\\
 \small (SCRI SIT Pune)\\
 \small \texttt{(email)}
 }
@@ -308,7 +308,7 @@ The AutoRL study evaluates combinations of:
 \begin{itemize}
 	\item \textbf{Algorithm:} A2C, DQN, PPO, REINFORCE.
 	\item \textbf{Attention:} None (baseline), Nadaraya--Watson (NW), temporal attention (TP), multi-head attention (MH), self-attention (SA).
-	\item \textbf{Dataset schema:} SIT Set-1, SIT Set-2, IEEE.
+	\item \textbf{Dataset schema:} SIT, IEEE.
 \end{itemize}
 Each configuration produces per-round evaluation metrics, enabling aggregation by algorithm and attention. This structure is important for practitioner-facing reporting: it supports robust selection (e.g., by unseen-only mean evaluation score) rather than anecdotal, single-run results.
 
@@ -544,7 +544,7 @@ We implement a timing metric inspired by offline prognostic evaluation concepts 
 Lower $|\lambda|$ is better; $\lambda=0$ corresponds to replacing exactly at the desired timing point. In the implementation, IAR bounds are derived from the wear threshold using a configurable range parameter.
 
 \subsection{Multi-round evaluation, confidence intervals, and hypothesis tests}
-Each trained model is evaluated for 20 rounds on unseen data. We report mean values and 95\% confidence intervals where raw results are available (IEEE). Hypothesis testing uses one-tailed Welch $t$-tests (provided as CSV artefacts) at $\alpha=0.05$.
+For SIT, each trained model is evaluated for 20 rounds on unseen data to quantify variance from stochastic action sampling. For IEEE, the provided evaluation artefact in this snapshot is single-round; nevertheless, statistical comparisons still aggregate over multiple trained models and multiple evaluation files. Hypothesis testing uses one-tailed Welch $t$-tests (provided as CSV artefacts) at $\alpha=0.05$.
 
 \paragraph{Aggregation and 95\% confidence intervals.}
 Let $S_1,\ldots,S_n$ denote the evaluation scores obtained across rounds and test files in a given panel. We report the sample mean and standard deviation
@@ -567,54 +567,48 @@ The batch pipeline enumerates learning rates and discount factors ($\gamma$) as 
 The hypothesis-test artefacts provide multiple panels (e.g., ``with self-eval'' vs ``unseen only'', and ``all attention'' vs ``best attention''). This paper emphasizes \emph{unseen-only} panels because they align with the intended PdM deployment assumption: policies should generalize to new runs rather than overfit to the training trace.
 
 % -----------------------------------------------------------------------------
-% Results (kept essentially intact from AutoRL_for_PdM.tex)
+% Results
 % -----------------------------------------------------------------------------
 \section{Results}
 \label{sec:results}
-This section presents results for SIT Set-1, SIT Set-2, and IEEE using the provided analysis dashboards, heatmaps, and statistical heatmaps. IEEE additionally includes an evaluation CSV enabling summary tables.
+This section reports evidence from the consolidated SIT and IEEE experiments using AutoRL's analysis dashboards, generalization heatmaps, and statistical test artefacts. The design emphasizes robustness via (i) multiple independently trained models, (ii) multiple evaluation files, and (iii) repeated evaluation rounds (for SIT) to quantify stochastic-policy variance.
+
+\paragraph{Experimental design for robustness.}
+For SIT, we evaluate a consolidated set of results using \textbf{14 trained models} (multiple independently trained agents) and \textbf{14 evaluation files}, with \textbf{20 stochastic evaluation rounds} per model--file pair. For IEEE, we report results over \textbf{5 trained models} and \textbf{5 evaluation files}. Collectively, these choices reduce the risk that conclusions are driven by a single training trace or a single test run and provide an evidence base suited to scientific reporting.
 
 \subsection{Visual summaries: analysis dashboards and generalization heatmaps}
-\Cref{fig:analysis_reports} presents consolidated analysis dashboards for each schema/set, including (i) overall performance matrices, (ii) CI-based error bars, (iii) algorithm-level aggregates, and (iv) $\lambda$ behavior. \Cref{fig:heatmaps} shows one-vs-all generalization heatmaps.
+\Cref{fig:analysis_reports} provides consolidated dashboards for each schema, summarizing: (A) mean evaluation score across algorithm--attention pairs, (B) the same means with uncertainty bars, (C) per-algorithm aggregates, and (D) the $\lambda$ timing metric. These plots serve as the primary \emph{descriptive} evidence for performance patterns and trade-offs across metrics.
+
+\Cref{fig:heatmaps} complements the dashboards with one-vs-all generalization heatmaps. The heatmaps are intentionally presented as \emph{visual evidence} (not a substitute for inference): they show, at a glance, which trained models transfer well across test files. In particular, they make it easy to visually compare how \textsc{REINFORCE} and \textsc{PPO} behave \emph{model-by-model} across the test set.
 
 \begin{figure}[t]
 	\centering
-	\begin{subfigure}[t]{0.32\linewidth}
+	\begin{subfigure}[t]{0.49\linewidth}
 		\centering
-		\includegraphics[width=\linewidth]{\autorlFigRoot/SIT_Results/_Analysis_Report_SIT_Set-1.jpg}
-		\caption{SIT Set-1}
-		\label{fig:analysis_sit1}
+		\includegraphics[width=\linewidth]{\autorlFigRoot/SIT_Results/_Analysis_Report_SIT.png}
+		\caption{SIT (consolidated)}
+		\label{fig:analysis_sit}
 	\end{subfigure}
-	\begin{subfigure}[t]{0.32\linewidth}
-		\centering
-		\includegraphics[width=\linewidth]{\autorlFigRoot/SIT_Results/_Analysis_Report_SIT_Set-2.jpg}
-		\caption{SIT Set-2}
-		\label{fig:analysis_sit2}
-	\end{subfigure}
-	\begin{subfigure}[t]{0.32\linewidth}
+	\begin{subfigure}[t]{0.49\linewidth}
 		\centering
 		\includegraphics[width=\linewidth]{\autorlFigRoot/IEEE_Results/_Analysis_Report_IEEE.jpg}
 		\caption{IEEE}
 		\label{fig:analysis_ieee}
 	\end{subfigure}
-	\caption{Consolidated evaluation dashboards (mean and CI error bars), used as primary visual evidence for performance patterns across algorithms and attention mechanisms.}
+	\caption{Consolidated evaluation dashboards (mean and uncertainty/error bars), used as primary visual evidence for performance patterns across algorithms and attention mechanisms.}
 	\label{fig:analysis_reports}
 \end{figure}
 
 \begin{figure}[t]
 	\centering
-	\begin{subfigure}[t]{0.32\linewidth}
+	\begin{subfigure}[t]{0.49\linewidth}
 		\centering
-		\includegraphics[width=\linewidth]{\autorlFigRoot/SIT_Results/_Heatmap_SIT_Set-1.jpg}
-		\caption{SIT Set-1}
+		\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{\autorlFigRoot/SIT_Results/_Heatmap_SIT.png}
+		\caption{SIT (consolidated)}
 	\end{subfigure}
-	\begin{subfigure}[t]{0.32\linewidth}
+	\begin{subfigure}[t]{0.49\linewidth}
 		\centering
-		\includegraphics[width=\linewidth]{\autorlFigRoot/SIT_Results/_Heatmap_SIT_Set-2.jpg}
-		\caption{SIT Set-2}
-	\end{subfigure}
-	\begin{subfigure}[t]{0.32\linewidth}
-		\centering
-		\includegraphics[width=\linewidth]{\autorlFigRoot/IEEE_Results/_Heatmap_IEEE.jpg}
+		\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{\autorlFigRoot/IEEE_Results/_Heatmap_IEEE.jpg}
 		\caption{IEEE}
 	\end{subfigure}
 	\caption{One-vs-all generalization heatmaps: trained models (rows) evaluated on unseen test files (columns) within each schema.}
@@ -623,7 +617,7 @@ This section presents results for SIT Set-1, SIT Set-2, and IEEE using the provi
 
 \subsection{Hypothesis tests (H1): REINFORCE vs A2C/DQN/PPO}
 \label{sec:hypothesis_tests}
-The hypothesis-test CSV artefacts provide one-tailed Welch $t$-tests at $\alpha=0.05$. \Cref{tab:hyp_tests} summarizes the unseen-only evaluation-score tests for two panels: \emph{All Attn} (aggregating REINFORCE across attention mechanisms) and \emph{Best Attn} (restricting REINFORCE to the best attention mechanism for that dataset panel).
+The hypothesis-test CSV artefacts provide one-tailed Welch $t$-tests at $\alpha=0.05$ for each schema. \Cref{tab:hyp_tests} summarizes the \emph{unseen-only} evaluation-score tests for two reporting panels: \emph{All Attn} (aggregating \textsc{REINFORCE} across attention mechanisms) and \emph{Best Attn} (restricting \textsc{REINFORCE} to the empirically best attention mechanism for that schema).
 
 \begin{table}[t]
 	\centering
@@ -632,26 +626,23 @@ The hypothesis-test CSV artefacts provide one-tailed Welch $t$-tests at $\alpha=
 	\input{\autorlTableRoot/hypothesis_tests_summary.tex}
 \end{table}
 
-Across SIT Set-1, SIT Set-2, and IEEE, the unseen-only tests show strong evidence that REINFORCE outperforms A2C and DQN. Against PPO, the evidence is schema-dependent: it is significant for SIT Set-1 and IEEE, and not significant in SIT Set-2 under the aggregated unseen-only panel. This pattern motivates H3: attention mechanisms can help differentiate configurations where baseline algorithms are otherwise close.
+Across both SIT and IEEE, the unseen-only tests provide consistent evidence that \textsc{REINFORCE} is statistically superior to A2C and DQN baselines. Against PPO, the evidence remains positive in both schemas in the provided artefacts (significant at $\alpha=0.05$). This supports H1 in a way that is robust to (i) the choice of schema and (ii) the evaluation-file composition.
 
 \subsection{Dataset-level interpretation}
 \label{sec:dataset_interpretation}
-\paragraph{SIT Set-1.}
-SIT Set-1 dashboards and heatmaps indicate strong performance for REINFORCE across attention mechanisms, with multi-head attention improving consistency. The one-vs-all heatmap also suggests that some training traces transfer better than others, motivating a multi-round, multi-test-file evaluation rather than a single split.
-
-\paragraph{SIT Set-2.}
-SIT Set-2 is more challenging for the PPO comparison. In the unseen-only \emph{All Attn} panel, REINFORCE does not significantly outperform PPO, but the \emph{Best Attn} panel does show significance. Practically, this means representation choice (attention) is sometimes the decisive factor and supports H3 as an applied claim: a lightweight algorithm with a suitable feature extractor can match or exceed a heavier baseline.
+\paragraph{SIT (consolidated).}
+The SIT dashboard (\cref{fig:analysis_sit}) indicates a clear separation between the two lightweight baselines (A2C/DQN) and the two top performers (PPO/\textsc{REINFORCE}) across attention mechanisms. The heatmap (\cref{fig:heatmaps}) reinforces that this pattern is not driven by a single evaluation file: strong-performing \textsc{REINFORCE} and PPO models maintain high scores across most test files, while weaker baselines show broader regions of consistently low performance.
 
 \paragraph{IEEE.}
-IEEE results show that top configurations cluster around PPO-Temporal and REINFORCE variants with multi-head/self-attention/temporal attention (\cref{tab:ieee_top10}). This clustering suggests that (i) partial observability and sensor fusion dominate difficulty, and (ii) attention-driven representation learning is central to performance.
+IEEE results show a tighter competition between PPO and \textsc{REINFORCE}, with the best-attention panel identifying self-attention as the strongest \textsc{REINFORCE} configuration. The resulting ranking (\cref{tab:ieee_top10}) suggests that, under the IEEE schema, representation choice is especially consequential under partial observability.
 
 \subsection{Quantitative IEEE summary (means and 95\% CI)}
 \label{sec:ieee_summary}
-For IEEE, a raw evaluation CSV enables direct computation of means and 95\% confidence intervals on unseen-only evaluations. \Cref{tab:ieee_top10} lists the top configurations by mean evaluation score, and \Cref{tab:ieee_best_attn} summarizes the best attention mechanism per algorithm.
+For IEEE, the evaluation CSV enables computation of means and 95\% confidence intervals on unseen-only evaluations by aggregating over trained models and test files (and over repeated rounds when available). \Cref{tab:ieee_top10} lists the top configurations by mean evaluation score, and \Cref{tab:ieee_best_attn} summarizes the best attention mechanism per algorithm.
 
 \begin{table}[t]
 	\centering
-	\caption{Top IEEE configurations on unseen-only evaluations (mean and 95\% CI, aggregated across rounds and test files). Numbers are rounded to three decimals.}
+	\caption{Top IEEE configurations on unseen-only evaluations (mean and 95\% CI, aggregated across trained models and test files). Numbers are rounded to three decimals.}
 	\label{tab:ieee_top10}
 	\input{\autorlTableRoot/ieee_unseen_summary.tex}
 \end{table}
@@ -672,17 +663,12 @@ For edge-first deployments where training and inference budgets are constrained,
 \subsection{Statistical heatmaps: p-values and t-statistics}
 \begin{figure}[t]
 	\centering
-	\begin{subfigure}[t]{0.32\linewidth}
+	\begin{subfigure}[t]{0.49\linewidth}
 		\centering
-		\includegraphics[width=\linewidth]{\autorlFigRoot/SIT_Results/_Statistical_p-value_SIT_Set-1.jpg}
-		\caption{SIT Set-1}
+		\includegraphics[width=\linewidth]{\autorlFigRoot/SIT_Results/_Statistical_p-value_SIT.png}
+		\caption{SIT (consolidated)}
 	\end{subfigure}
-	\begin{subfigure}[t]{0.32\linewidth}
-		\centering
-		\includegraphics[width=\linewidth]{\autorlFigRoot/SIT_Results/_Statistical_p-value_SIT_Set-2.jpg}
-		\caption{SIT Set-2}
-	\end{subfigure}
-	\begin{subfigure}[t]{0.32\linewidth}
+	\begin{subfigure}[t]{0.49\linewidth}
 		\centering
 		\includegraphics[width=\linewidth]{\autorlFigRoot/IEEE_Results/_Statistical_p-value_IEEE.jpg}
 		\caption{IEEE}
@@ -693,17 +679,12 @@ For edge-first deployments where training and inference budgets are constrained,
 
 \begin{figure}[t]
 	\centering
-	\begin{subfigure}[t]{0.32\linewidth}
+	\begin{subfigure}[t]{0.49\linewidth}
 		\centering
-		\includegraphics[width=\linewidth]{\autorlFigRoot/SIT_Results/_Statistical_t_SIT_Set-1.jpg}
-		\caption{SIT Set-1}
+		\includegraphics[width=\linewidth]{\autorlFigRoot/SIT_Results/_Statistical_t_SIT.png}
+		\caption{SIT (consolidated)}
 	\end{subfigure}
-	\begin{subfigure}[t]{0.32\linewidth}
-		\centering
-		\includegraphics[width=\linewidth]{\autorlFigRoot/SIT_Results/_Statistical_t_SIT_Set-2.jpg}
-		\caption{SIT Set-2}
-	\end{subfigure}
-	\begin{subfigure}[t]{0.32\linewidth}
+	\begin{subfigure}[t]{0.49\linewidth}
 		\centering
 		\includegraphics[width=\linewidth]{\autorlFigRoot/IEEE_Results/_Statistical_t_IEEE.jpg}
 		\caption{IEEE}
